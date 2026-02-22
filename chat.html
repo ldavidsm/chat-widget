@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lumière Beauty Spa · Demo Widget</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f9f6f1;
+    min-height: 100vh;
+    color: #2a2118;
+  }
+
+  .demo-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+  }
+
+  .demo-hero {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: linear-gradient(135deg, #2a2118 0%, #4a3728 100%);
+    border-radius: 24px;
+    color: #f9f6f1;
+    margin-bottom: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .demo-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,169,110,0.3), transparent);
+  }
+  .demo-hero h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 400;
+    letter-spacing: 2px;
+    position: relative;
+  }
+  .demo-hero h1 em { color: #C9A96E; font-style: italic; }
+  .demo-hero p {
+    color: rgba(249,246,241,0.6);
+    margin-top: .8rem;
+    font-size: .9rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    position: relative;
+  }
+
+  .demo-note {
+    background: #fff8e7;
+    border: 1px solid #e8d5a0;
+    border-radius: 12px;
+    padding: 1rem 1.4rem;
+    font-size: .83rem;
+    color: #7a6040;
+    text-align: center;
+  }
+  .demo-note strong { color: #4a3728; }
+  code {
+    background: rgba(74,55,40,.08);
+    padding: .1rem .4rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: .8rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-page">
+  <div class="demo-hero">
+    <h1>Lumière <em>Beauty</em> Spa</h1>
+    <p>Belleza · Bienestar · Estética avanzada</p>
+  </div>
+  <div class="demo-note">
+    <strong>Demo del widget de chat.</strong>
+    Pulsa la burbuja abajo a la derecha · El <code>clinic_id</code> y <code>session_id</code>
+    se envían automáticamente al webhook de n8n · Abre la consola para ver los datos.
+  </div>
+</div>
+
+<style>
+  :root {
+    --clinic-primary:   #C9A96E;
+    --clinic-dark:      #2a2118;
+    --clinic-light:     #fdf8f2;
+    --bubble-size: 60px;
+    --chat-w: 400px;
+    --chat-h: 580px;
+    --radius: 20px;
+    --shadow: 0 20px 60px rgba(42,33,24,0.2), 0 4px 16px rgba(42,33,24,0.12);
+  }
+
+  /* ── Burbuja flotante ── */
+  #chat-bubble {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: var(--bubble-size);
+    height: var(--bubble-size);
+    background: var(--clinic-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 32px rgba(201,169,110,0.45), 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 9999;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;
+    animation: bubble-in .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes bubble-in {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  #chat-bubble:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 40px rgba(201,169,110,0.55), 0 4px 12px rgba(0,0,0,0.2);
+  }
+  #chat-bubble.open { transform: scale(0.9); }
+  #chat-bubble svg { width: 26px; height: 26px; fill: #fff; transition: opacity .2s; }
+  #chat-bubble .ico-close { display: none; }
+  #chat-bubble.open .ico-chat  { display: none; }
+  #chat-bubble.open .ico-close { display: block; }
+  #chat-bubble::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--clinic-primary);
+    opacity: 0;
+    animation: pulse-ring 2.5s ease-out infinite;
+  }
+  #chat-bubble.open::before { animation: none; }
+  @keyframes pulse-ring {
+    0%   { transform: scale(1);    opacity: .6; }
+    70%  { transform: scale(1.35); opacity: 0; }
+    100% { opacity: 0; }
+  }
+  #chat-badge {
+    position: absolute;
+    top: -4px; right: -4px;
+    width: 20px; height: 20px;
+    background: #e05252;
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #f9f6f1;
+    opacity: 0;
+    transform: scale(0);
+    transition: all .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  #chat-badge.show { opacity: 1; transform: scale(1); }
+
+  /* ── Ventana del chat ── */
+  #chat-window {
+    position: fixed;
+    bottom: calc(28px + var(--bubble-size) + 12px);
+    right: 28px;
+    width: var(--chat-w);
+    height: var(--chat-h);
+    background: var(--clinic-light);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    z-index: 9998;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px) scale(.96);
+    pointer-events: none;
+    transition: opacity .3s cubic-bezier(.4,0,.2,1), transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  #chat-window.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+  }
+
+  .chat-header {
+    background: var(--clinic-dark);
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    flex-shrink: 0;
+  }
+  .chat-avatar {
+    width: 38px; height: 38px;
+    background: var(--clinic-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .chat-header-info { flex: 1; }
+  .chat-header-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f9f6f1;
+    letter-spacing: .5px;
+  }
+  .chat-header-status {
+    font-size: .68rem;
+    color: var(--clinic-primary);
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    margin-top: .1rem;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    background: #4ade80;
+    border-radius: 50%;
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+  }
+  .chat-header-powered {
+    font-size: .58rem;
+    color: rgba(249,246,241,.25);
+    font-family: monospace;
+    letter-spacing: 1px;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    scroll-behavior: smooth;
+  }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: rgba(201,169,110,.3); border-radius: 2px; }
+
+  .msg { display: flex; flex-direction: column; max-width: 82%; animation: msg-in .2s ease both; }
+  @keyframes msg-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .msg.bot  { align-self: flex-start; align-items: flex-start; }
+  .msg.user { align-self: flex-end;   align-items: flex-end; }
+
+  .msg-bubble {
+    padding: .65rem .9rem;
+    border-radius: 16px;
+    font-size: .85rem;
+    line-height: 1.5;
+  }
+  .msg.bot  .msg-bubble {
+    background: #fff;
+    color: #2a2118;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .msg.user .msg-bubble {
+    background: var(--clinic-primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg-time {
+    font-size: .6rem;
+    color: #bbb;
+    margin-top: .2rem;
+    padding: 0 .2rem;
+  }
+
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: .7rem .9rem;
+    background: #fff;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    width: fit-content;
+  }
+  .typing-dot {
+    width: 6px; height: 6px;
+    background: var(--clinic-primary);
+    border-radius: 50%;
+    animation: typing-bounce .9s ease-in-out infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: .15s; }
+  .typing-dot:nth-child(3) { animation-delay: .3s; }
+  @keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+    30%            { transform: translateY(-5px); opacity: 1; }
+  }
+
+  .chat-input-area {
+    display: flex;
+    align-items: flex-end;
+    gap: .5rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid rgba(201,169,110,.15);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  #chat-input {
+    flex: 1;
+    border: 1.5px solid rgba(201,169,110,.3);
+    border-radius: 12px;
+    padding: .6rem .9rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    color: #2a2118;
+    background: var(--clinic-light);
+    resize: none;
+    outline: none;
+    max-height: 100px;
+    line-height: 1.4;
+    transition: border-color .2s;
+  }
+  #chat-input:focus { border-color: var(--clinic-primary); }
+  #chat-send {
+    width: 38px; height: 38px;
+    background: var(--clinic-primary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform .15s, background .15s;
+  }
+  #chat-send:hover  { background: #b8944f; transform: scale(1.05); }
+  #chat-send:active { transform: scale(.95); }
+  #chat-send svg { width: 18px; height: 18px; fill: #fff; }
+  #chat-send:disabled { background: #ddd; cursor: not-allowed; transform: none; }
+
+  .chat-footer {
+    text-align: center;
+    padding: .4rem;
+    font-size: .6rem;
+    color: #ccc;
+    font-family: monospace;
+    letter-spacing: .5px;
+    flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════
+     CALENDARIO INTEGRADO EN EL CHAT
+     ══════════════════════════════════════ */
+  .calendar-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(42,33,24,0.1);
+    overflow: hidden;
+    width: 100%;
+    max-width: 340px;
+    animation: msg-in .25s ease both;
+    margin-top: .2rem;
+  }
+
+  .cal-header {
+    background: var(--clinic-dark);
+    padding: .7rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cal-header-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #f9f6f1;
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .cal-nav {
+    display: flex;
+    gap: .4rem;
+  }
+  .cal-nav button {
+    background: rgba(201,169,110,.2);
+    border: none;
+    color: var(--clinic-primary);
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: .85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+  }
+  .cal-nav button:hover { background: rgba(201,169,110,.4); }
+  .cal-nav button:disabled { opacity: .3; cursor: not-allowed; }
+
+  .cal-month-label {
+    color: rgba(249,246,241,.7);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    text-align: center;
+    padding: .3rem 0 0;
+  }
+
+  .cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: .5rem .6rem .2rem;
+    gap: 2px;
+  }
+  .cal-weekday {
+    text-align: center;
+    font-size: .6rem;
+    color: #999;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .cal-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: .2rem .6rem .6rem;
+    gap: 3px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: .78rem;
+    font-weight: 400;
+    cursor: default;
+    transition: all .15s;
+    position: relative;
+  }
+  .cal-day.empty { }
+  .cal-day.past {
+    color: #ddd;
+    cursor: not-allowed;
+  }
+  .cal-day.no-slots {
+    color: #ccc;
+  }
+  .cal-day.has-slots {
+    color: var(--clinic-dark);
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .cal-day.has-slots::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    width: 4px; height: 4px;
+    background: var(--clinic-primary);
+    border-radius: 50%;
+  }
+  .cal-day.has-slots:hover {
+    background: rgba(201,169,110,.15);
+    transform: scale(1.1);
+  }
+  .cal-day.selected {
+    background: var(--clinic-primary) !important;
+    color: #fff !important;
+    font-weight: 600;
+  }
+  .cal-day.selected::after { background: rgba(255,255,255,.7); }
+  .cal-day.loading {
+    color: #ddd;
+    animation: shimmer 1s ease infinite alternate;
+  }
+  @keyframes shimmer {
+    from { opacity: .4; }
+    to   { opacity: 1; }
+  }
+  .cal-day.today {
+    border: 1.5px solid rgba(201,169,110,.4);
+  }
+
+  /* Horarios */
+  .cal-slots {
+    border-top: 1px solid rgba(201,169,110,.1);
+    padding: .6rem .7rem .7rem;
+  }
+  .cal-slots-title {
+    font-size: .68rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: .5rem;
+  }
+  .cal-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .35rem;
+  }
+  .cal-slot-btn {
+    background: rgba(201,169,110,.08);
+    border: 1.5px solid rgba(201,169,110,.25);
+    border-radius: 8px;
+    padding: .4rem .3rem;
+    font-size: .75rem;
+    color: #4a3728;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .cal-slot-btn:hover {
+    background: var(--clinic-primary);
+    border-color: var(--clinic-primary);
+    color: #fff;
+    transform: scale(1.03);
+  }
+  .cal-slot-btn .slot-staff {
+    font-size: .6rem;
+    opacity: .7;
+    display: block;
+    margin-top: .1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-slots-empty {
+    font-size: .78rem;
+    color: #bbb;
+    text-align: center;
+    padding: .4rem 0;
+  }
+  .cal-loading-slots {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: .5rem 0;
+  }
+  .cal-loading-dot {
+    width: 5px; height: 5px;
+    background: var(--clinic-primary);
+    border-radius: 50%;
+    animation: typing-bounce .9s ease-in-out infinite;
+    opacity: .5;
+  }
+  .cal-loading-dot:nth-child(2) { animation-delay: .15s; }
+  .cal-loading-dot:nth-child(3) { animation-delay: .3s; }
+
+  @media (max-width: 480px) {
+    :root { --chat-w: calc(100vw - 20px); --chat-h: 70vh; }
+    #chat-window { right: 10px; bottom: calc(20px + var(--bubble-size) + 10px); }
+    #chat-bubble { right: 20px; bottom: 20px; }
+  }
+</style>
+
+<!-- BUBBLE -->
+<div id="chat-bubble" onclick="toggleChat()" title="Hablar con nuestro asistente">
+  <div id="chat-badge">1</div>
+  <svg class="ico-chat" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+  <svg class="ico-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+</div>
+
+<!-- CHAT WINDOW -->
+<div id="chat-window">
+  <div class="chat-header">
+    <div class="chat-avatar">✨</div>
+    <div class="chat-header-info">
+      <div class="chat-header-name">Lumière Assistant</div>
+      <div class="chat-header-status">
+        <span class="status-dot"></span>
+        En línea · Respuesta inmediata
+      </div>
+    </div>
+    <div class="chat-header-powered">n8n · AI</div>
+  </div>
+
+  <div class="chat-messages" id="chat-messages"></div>
+
+  <div class="chat-input-area">
+    <textarea
+      id="chat-input"
+      placeholder="Escríbenos..."
+      rows="1"
+      onkeydown="handleKey(event)"
+      oninput="autoResize(this)"
+    ></textarea>
+    <button id="chat-send" onclick="sendMessage()" title="Enviar">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+  <div class="chat-footer">Powered by n8n · AI · clinic_id: clinic_001</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════
+const CONFIG = {
+  CLINIC_ID:       'clinic_001',
+  N8N_WEBHOOK_URL: 'https://luisdsm.app.n8n.cloud/webhook/chat',
+  SUPABASE_URL:    'https://farwxthbzrogttrviwzo.supabase.co',
+  SUPABASE_KEY:    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhcnd4dGhienJvZ3R0cnZpd3pvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk4OTMwNjcsImV4cCI6MjA1NTQ2OTA2N30.oANYPMOGGiXRBCHGGMfbmaqNlW1Eq5V9zzb3dI7GJBI',
+};
+
+// ═══════════════════════════════════════════════════════
+// SESSION ID persistente en la pestaña
+// ═══════════════════════════════════════════════════════
+let SESSION_ID = sessionStorage.getItem('lumiere_session');
+if (!SESSION_ID) {
+  SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  sessionStorage.setItem('lumiere_session', SESSION_ID);
+}
+
+// ═══════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════
+let isOpen    = false;
+let isWaiting = false;
+let typingEl  = null;
+let hasOpened = false;
+
+// Estado del calendario
+let calState = {
+  visible: false,
+  serviceName: null,
+  selectedDate: null,
+  selectedSlot: null,
+  currentYear: null,
+  currentMonth: null,
+  slotsCache: {},      // { 'YYYY-MM-DD': [{slot_start, staff_name}] }
+  availableDates: new Set(),
+  loadedRange: null,
+};
+
+// ═══════════════════════════════════════════════════════
+// TOGGLE CHAT
+// ═══════════════════════════════════════════════════════
+function toggleChat() {
+  isOpen = !isOpen;
+  document.getElementById('chat-bubble').classList.toggle('open', isOpen);
+  document.getElementById('chat-window').classList.toggle('open', isOpen);
+  hideBadge();
+  if (isOpen && !hasOpened) {
+    hasOpened = true;
+    setTimeout(() => addBotMessage('¡Hola! 👋 Soy el asistente de Lumière Beauty Spa. ¿En qué puedo ayudarte hoy?'), 400);
+    document.getElementById('chat-input').focus();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ENVIAR MENSAJE
+// ═══════════════════════════════════════════════════════
+async function sendMessage(overrideText) {
+  const input   = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const text    = overrideText || input.value.trim();
+  if (!text || isWaiting) return;
+
+  addUserMessage(text);
+  if (!overrideText) {
+    input.value = '';
+    input.style.height = 'auto';
+  }
+
+  // Ocultar calendario si estaba visible
+  hideCalendar();
+
+  isWaiting = true;
+  sendBtn.disabled = true;
+  showTyping();
+
+  try {
+    const payload = {
+      clinic_id:  CONFIG.CLINIC_ID,
+      session_id: SESSION_ID,
+      message:    text,
+      timestamp:  new Date().toISOString(),
+    };
+    console.log('📤 Enviando:', payload);
+
+    const res = await fetch(CONFIG.N8N_WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    console.log('📥 Respuesta:', data);
+
+    removeTyping();
+
+    const reply = data.reply || data.message || data.output || '¿Puedes repetirlo?';
+    addBotMessage(reply);
+
+    // ── Mostrar calendario si el backend lo indica ──
+    if (data.showCalendar && data.serviceName) {
+      setTimeout(() => showCalendar(data.serviceName), 300);
+    }
+
+  } catch (err) {
+    console.error('❌ Error:', err);
+    removeTyping();
+    addBotMessage('Lo siento, hubo un problema de conexión. Por favor intenta de nuevo.');
+  }
+
+  isWaiting = false;
+  sendBtn.disabled = false;
+  document.getElementById('chat-input').focus();
+}
+
+// ═══════════════════════════════════════════════════════
+// CALENDARIO
+// ═══════════════════════════════════════════════════════
+
+function showCalendar(serviceName) {
+  // Limpiar estado previo
+  calState.visible = true;
+  calState.serviceName = serviceName;
+  calState.selectedDate = null;
+  calState.slotsCache = {};
+  calState.availableDates = new Set();
+
+  const now = new Date();
+  calState.currentYear  = now.getFullYear();
+  calState.currentMonth = now.getMonth();
+
+  const msgs = document.getElementById('chat-messages');
+  const card = document.createElement('div');
+  card.id = 'calendar-card';
+  card.className = 'msg bot';
+  card.style.maxWidth = '100%';
+  card.style.width = '100%';
+  card.innerHTML = `<div class="calendar-card" id="calendar-inner"></div>`;
+  msgs.appendChild(card);
+  scrollBottom();
+
+  renderCalendar();
+  loadMonthSlots(calState.currentYear, calState.currentMonth);
+}
+
+function hideCalendar() {
+  const card = document.getElementById('calendar-card');
+  if (card) card.remove();
+  calState.visible = false;
+}
+
+function renderCalendar() {
+  const inner = document.getElementById('calendar-inner');
+  if (!inner) return;
+
+  const year  = calState.currentYear;
+  const month = calState.currentMonth;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                      'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const firstDay = new Date(year, month, 1).getDay(); // 0=dom
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Ajustar para semana que empieza el lunes
+  const startOffset = (firstDay + 6) % 7;
+
+  // Botón prev: deshabilitar si estamos en el mes actual
+  const isPrevDisabled = (year === today.getFullYear() && month === today.getMonth());
+
+  let daysHtml = '';
+  // Celdas vacías al inicio
+  for (let i = 0; i < startOffset; i++) daysHtml += `<div class="cal-day empty"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    date.setHours(0,0,0,0);
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday  = date.getTime() === today.getTime();
+    const isPast   = date < today;
+    const isSelected = calState.selectedDate === dateStr;
+    const hasSlots = calState.availableDates.has(dateStr);
+    const isLoading = calState.loadedRange === null && !isPast;
+
+    let cls = 'cal-day';
+    if (isToday)    cls += ' today';
+    if (isPast)     cls += ' past';
+    else if (isLoading) cls += ' loading';
+    else if (hasSlots)  cls += ' has-slots';
+    else                cls += ' no-slots';
+    if (isSelected) cls += ' selected';
+
+    const click = (!isPast && hasSlots) ? `onclick="selectDate('${dateStr}')"` : '';
+    daysHtml += `<div class="${cls}" ${click}>${d}</div>`;
+  }
+
+  inner.innerHTML = `
+    <div class="cal-header">
+      <span class="cal-header-title">Elige tu fecha</span>
+      <div class="cal-nav">
+        <button onclick="calPrev()" ${isPrevDisabled ? 'disabled' : ''}>‹</button>
+        <button onclick="calNext()">›</button>
+      </div>
+    </div>
+    <div class="cal-month-label">${monthNames[month]} ${year}</div>
+    <div class="cal-weekdays">
+      <div class="cal-weekday">Lu</div>
+      <div class="cal-weekday">Ma</div>
+      <div class="cal-weekday">Mi</div>
+      <div class="cal-weekday">Ju</div>
+      <div class="cal-weekday">Vi</div>
+      <div class="cal-weekday">Sá</div>
+      <div class="cal-weekday">Do</div>
+    </div>
+    <div class="cal-days">${daysHtml}</div>
+    <div id="cal-slots-area"></div>
+  `;
+
+  // Si había fecha seleccionada, mostrar sus slots
+  if (calState.selectedDate) renderSlots(calState.selectedDate);
+  scrollBottom();
+}
+
+async function loadMonthSlots(year, month) {
+  calState.loadedRange = null;
+  calState.availableDates = new Set();
+
+  // Fecha inicio: hoy o primer día del mes (lo que sea mayor)
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const firstOfMonth = new Date(year, month, 1);
+  const startDate = firstOfMonth > today ? firstOfMonth : today;
+  const endDate   = new Date(year, month + 1, 0); // último día del mes
+
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr   = endDate.toISOString().split('T')[0];
+
+  try {
+    const res = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/rpc/get_available_slots_range`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': CONFIG.SUPABASE_KEY,
+        'Authorization': `Bearer ${CONFIG.SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        p_clinic_id:    CONFIG.CLINIC_ID,
+        p_service_name: calState.serviceName,
+        p_start_date:   startStr,
+        p_end_date:     endStr,
+      }),
+    });
+
+    if (!res.ok) throw new Error('Error cargando slots');
+    const slots = await res.json();
+
+    // Organizar por fecha
+    calState.slotsCache = {};
+    slots.forEach(slot => {
+      const date = slot.slot_start.split('T')[0];
+      if (!calState.slotsCache[date]) calState.slotsCache[date] = [];
+      calState.slotsCache[date].push(slot);
+      calState.availableDates.add(date);
+    });
+
+    calState.loadedRange = { startStr, endStr };
+    renderCalendar();
+
+  } catch(e) {
+    console.error('Error cargando disponibilidad:', e);
+    calState.loadedRange = 'error';
+    renderCalendar();
+  }
+}
+
+function selectDate(dateStr) {
+  calState.selectedDate = dateStr;
+  renderCalendar();
+  renderSlots(dateStr);
+  scrollBottom();
+}
+
+function renderSlots(dateStr) {
+  const area = document.getElementById('cal-slots-area');
+  if (!area) return;
+
+  const slots = calState.slotsCache[dateStr] || [];
+  const date  = new Date(dateStr + 'T12:00:00');
+  const dayName = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  if (slots.length === 0) {
+    area.innerHTML = `
+      <div class="cal-slots">
+        <div class="cal-slots-title">Sin disponibilidad</div>
+        <div class="cal-slots-empty">No hay huecos disponibles este día</div>
+      </div>`;
+    return;
+  }
+
+  const slotsHtml = slots.map(slot => {
+    const hora = new Date(slot.slot_start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const staff = slot.staff_name.split(' ')[0]; // Solo nombre
+    return `<button class="cal-slot-btn" onclick="selectSlot('${dateStr}', '${slot.slot_start}', '${slot.staff_name}')">
+      ${hora}
+      <span class="slot-staff">${staff}</span>
+    </button>`;
+  }).join('');
+
+  area.innerHTML = `
+    <div class="cal-slots">
+      <div class="cal-slots-title">${dayName}</div>
+      <div class="cal-slots-grid">${slotsHtml}</div>
+    </div>`;
+}
+
+function selectSlot(dateStr, slotStart, staffName) {
+  const date = new Date(slotStart);
+  const hora = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const dia  = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Enviar como mensaje del usuario automáticamente
+  const msg = `Quiero el ${dia} a las ${hora} con ${staffName}`;
+  sendMessage(msg);
+}
+
+function calPrev() {
+  if (calState.currentMonth === 0) {
+    calState.currentMonth = 11;
+    calState.currentYear--;
+  } else {
+    calState.currentMonth--;
+  }
+  calState.selectedDate = null;
+  renderCalendar();
+  loadMonthSlots(calState.currentYear, calState.currentMonth);
+}
+
+function calNext() {
+  if (calState.currentMonth === 11) {
+    calState.currentMonth = 0;
+    calState.currentYear++;
+  } else {
+    calState.currentMonth++;
+  }
+  calState.selectedDate = null;
+  renderCalendar();
+  loadMonthSlots(calState.currentYear, calState.currentMonth);
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS MENSAJES
+// ═══════════════════════════════════════════════════════
+function addBotMessage(text) {
+  const msgs = document.getElementById('chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'msg bot';
+  el.innerHTML = `
+    <div class="msg-bubble">${formatText(text)}</div>
+    <div class="msg-time">${getTime()}</div>
+  `;
+  msgs.appendChild(el);
+  scrollBottom();
+}
+
+function addUserMessage(text) {
+  const msgs = document.getElementById('chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'msg user';
+  el.innerHTML = `
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+    <div class="msg-time">${getTime()}</div>
+  `;
+  msgs.appendChild(el);
+  scrollBottom();
+}
+
+function showTyping() {
+  const msgs = document.getElementById('chat-messages');
+  typingEl = document.createElement('div');
+  typingEl.className = 'msg bot';
+  typingEl.innerHTML = `
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  msgs.appendChild(typingEl);
+  scrollBottom();
+}
+
+function removeTyping() {
+  if (typingEl) { typingEl.remove(); typingEl = null; }
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPERS UI
+// ═══════════════════════════════════════════════════════
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+function scrollBottom() {
+  const msgs = document.getElementById('chat-messages');
+  setTimeout(() => msgs.scrollTop = msgs.scrollHeight, 60);
+}
+function hideBadge() {
+  document.getElementById('chat-badge').classList.remove('show');
+}
+function getTime() {
+  return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+function formatText(t) {
+  return escapeHtml(t)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/_(.*?)_/g, '<em>$1</em>');
+}
+
+setTimeout(() => {
+  if (!hasOpened) document.getElementById('chat-badge').classList.add('show');
+}, 3000);
+</script>
+
+</body>
+</html>
