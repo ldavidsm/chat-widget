@@ -667,7 +667,7 @@
 // ═══════════════════════════════════════════════════════
 const CONFIG = {
   CLINIC_ID:       'clinic_001',
-  N8N_WEBHOOK_URL: 'https://luisdsm.app.n8n.cloud/webhook/chat',
+  N8N_WEBHOOK_URL: 'https://localhost:5678/webhook/chat',
   SUPABASE_URL:    'https://farwxthbzrogttrviwzo.supabase.co',
   SUPABASE_KEY:    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhcnd4dGhienJvZ3R0cnZpd3pvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk4OTMwNjcsImV4cCI6MjA1NTQ2OTA2N30.oANYPMOGGiXRBCHGGMfbmaqNlW1Eq5V9zzb3dI7GJBI',
 };
@@ -688,7 +688,7 @@ let isOpen    = false;
 let isWaiting = false;
 let typingEl  = null;
 let hasOpened = false;
-let clinicCategorias = []; // cache de categorías de Supabase
+let clinicCategorias = []; 
 
 // Estado del calendario
 let calState = {
