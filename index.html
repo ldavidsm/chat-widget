@@ -560,6 +560,62 @@
   .cal-loading-dot:nth-child(2) { animation-delay: .15s; }
   .cal-loading-dot:nth-child(3) { animation-delay: .3s; }
 
+  /* ── Quick reply buttons ── */
+  .quick-replies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .4rem;
+  }
+  .quick-btn {
+    background: #fff;
+    border: 1.5px solid var(--clinic-primary);
+    border-radius: 20px;
+    padding: .45rem .9rem;
+    font-size: .78rem;
+    color: #4a3728;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .quick-btn:hover { background: var(--clinic-primary); color: #fff; transform: scale(1.03); }
+  .quick-btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .quick-btn.selected { background: var(--clinic-primary); color: #fff; }
+
+  /* ── Categorías dinámicas ── */
+  .categoria-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .4rem;
+    margin-top: .4rem;
+    width: 100%;
+  }
+  .categoria-btn {
+    background: #fff;
+    border: 1.5px solid rgba(201,169,110,.3);
+    border-radius: 12px;
+    padding: .6rem .7rem;
+    font-size: .76rem;
+    color: #4a3728;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    line-height: 1.3;
+  }
+  .categoria-btn:hover {
+    background: rgba(201,169,110,.1);
+    border-color: var(--clinic-primary);
+    transform: scale(1.02);
+  }
+  .categoria-btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .categoria-btn.selected { background: rgba(201,169,110,.15); border-color: var(--clinic-primary); }
+  .categoria-icon { font-size: 1.1rem; flex-shrink: 0; }
+
   @media (max-width: 480px) {
     :root { --chat-w: calc(100vw - 20px); --chat-h: 70vh; }
     #chat-window { right: 10px; bottom: calc(20px + var(--bubble-size) + 10px); }
@@ -632,6 +688,7 @@ let isOpen    = false;
 let isWaiting = false;
 let typingEl  = null;
 let hasOpened = false;
+let clinicCategorias = []; // cache de categorías de Supabase
 
 // Estado del calendario
 let calState = {
@@ -656,7 +713,16 @@ function toggleChat() {
   hideBadge();
   if (isOpen && !hasOpened) {
     hasOpened = true;
-    setTimeout(() => addBotMessage('¡Hola! 👋 Soy el asistente de Lumière Beauty Spa. ¿En qué puedo ayudarte hoy?'), 400);
+    // Cargar categorías en paralelo mientras mostramos saludo
+    loadClinicCategorias();
+    setTimeout(() => {
+      addBotMessage('¡Hola! 👋 Bienvenida a **Lumière Beauty Spa**. ¿Qué estás buscando hoy?');
+      addQuickReplies([
+        { label: '📅 Reservar una cita',         value: 'Quiero reservar una cita' },
+        { label: '✨ Info sobre tratamientos',    value: 'Quiero información sobre tratamientos' },
+        { label: '💬 Hablar con el equipo',       value: 'Quiero hablar con alguien del equipo' },
+      ]);
+    }, 400);
     document.getElementById('chat-input').focus();
   }
 }
@@ -712,6 +778,11 @@ async function sendMessage(overrideText) {
       setTimeout(() => showCalendar(data.serviceName), 300);
     }
 
+    // ── Mostrar categorías si el backend pide objetivo ──
+    if (data.showCategorias) {
+      setTimeout(() => addCategoriasButtons(), 300);
+    }
+
   } catch (err) {
     console.error('❌ Error:', err);
     removeTyping();
@@ -721,6 +792,115 @@ async function sendMessage(overrideText) {
   isWaiting = false;
   sendBtn.disabled = false;
   document.getElementById('chat-input').focus();
+}
+
+// ═══════════════════════════════════════════════════════
+// CARGA DINÁMICA DE CATEGORÍAS
+// ═══════════════════════════════════════════════════════
+
+// Iconos por nombre de categoría (fallback genérico)
+const CATEGORIA_ICONS = {
+  'facial':    '✨',
+  'corporal':  '🌿',
+  'manos':     '💅',
+  'masaje':    '💆',
+  'antiedad':  '⏳',
+  'depilacion':'🪒',
+  'peeling':   '🧖',
+  'default':   '🌸',
+};
+
+function getIconForCategoria(cat) {
+  const key = cat.toLowerCase();
+  for (const [k, v] of Object.entries(CATEGORIA_ICONS)) {
+    if (key.includes(k)) return v;
+  }
+  return CATEGORIA_ICONS.default;
+}
+
+async function loadClinicCategorias() {
+  try {
+    const res = await fetch(
+      `${CONFIG.SUPABASE_URL}/rest/v1/services?clinic_id=eq.${CONFIG.CLINIC_ID}&active=eq.true&select=category`,
+      {
+        headers: {
+          'apikey': CONFIG.SUPABASE_KEY,
+          'Authorization': `Bearer ${CONFIG.SUPABASE_KEY}`,
+        }
+      }
+    );
+    if (!res.ok) return;
+    const rows = await res.json();
+    // Categorías únicas, sin nulls
+    const cats = [...new Set(rows.map(r => r.category).filter(Boolean))];
+    clinicCategorias = cats;
+    console.log('📋 Categorías cargadas:', clinicCategorias);
+  } catch(e) {
+    console.warn('No se pudieron cargar categorías:', e);
+  }
+}
+
+function addQuickReplies(options) {
+  const msgs = document.getElementById('chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'msg bot';
+  const btns = options.map(opt =>
+    `<button class="quick-btn" onclick="selectQuickReply(this, '${opt.value}')">${opt.label}</button>`
+  ).join('');
+  el.innerHTML = `<div class="quick-replies">${btns}</div>`;
+  msgs.appendChild(el);
+  scrollBottom();
+}
+
+function selectQuickReply(btn, value) {
+  const container = btn.closest('.quick-replies');
+  container.querySelectorAll('.quick-btn').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = b === btn ? '1' : '0.4';
+  });
+  btn.classList.add('selected');
+  setTimeout(() => sendMessage(value), 200);
+}
+
+function addCategoriasButtons() {
+  const msgs = document.getElementById('chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'msg bot';
+  el.style.maxWidth = '100%';
+  el.style.width = '100%';
+
+  // Usar categorías dinámicas si están cargadas, si no usar fallback
+  const cats = clinicCategorias.length > 0
+    ? clinicCategorias
+    : ['Facial', 'Corporal', 'Manos', 'Masaje'];
+
+  // Añadir siempre "No sé, necesito consejo" al final
+  const allCats = [...cats, 'No sé, necesito consejo'];
+
+  const btns = allCats.map(cat => {
+    const icon = getIconForCategoria(cat);
+    const safeVal = cat.replace(/'/g, "\\'");
+    return `<button class="categoria-btn" onclick="selectCategoria(this, '${safeVal}')">
+      <span class="categoria-icon">${icon}</span>${cat}
+    </button>`;
+  }).join('');
+
+  el.innerHTML = `<div class="categoria-grid">${btns}</div>`;
+  msgs.appendChild(el);
+  scrollBottom();
+}
+
+function selectCategoria(btn, categoria) {
+  const container = btn.closest('.categoria-grid');
+  container.querySelectorAll('.categoria-btn').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = b === btn ? '1' : '0.4';
+  });
+  btn.classList.add('selected');
+  const msg = categoria === 'No sé, necesito consejo'
+    ? 'No sé qué tratamiento necesito, necesito consejo'
+    : `Me interesan los tratamientos de ${categoria.toLowerCase()}`;
+  setTimeout(() => sendMessage(msg), 200);
 }
 
 // ═══════════════════════════════════════════════════════
