@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>chat-widget · demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* Deliberately aggressive host styles: the widget must survive them.
+     If anything here leaked into the shadow root, the chat would break. */
+  * { box-sizing: content-box; }
+  body {
+    margin: 0;
+    font-family: 'DM Sans', sans-serif;
+    background: #f9f6f1;
+    color: #2a2118;
+    line-height: 1.6;
+  }
+  button, textarea { font-family: 'Comic Sans MS', cursive; font-size: 22px; }
+  .page { max-width: 760px; margin: 0 auto; padding: 4rem 2rem; }
+  .hero {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, #2a2118 0%, #4a3728 100%);
+    border-radius: 24px;
+    color: #f9f6f1;
+    margin-bottom: 2.5rem;
+  }
+  .hero h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin: 0;
+  }
+  .hero h1 em { color: #C9A96E; font-style: italic; }
+  .hero p {
+    color: rgba(249, 246, 241, .6);
+    margin: .8rem 0 0;
+    font-size: .8rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .note {
+    background: #fff8e7;
+    border: 1px solid #e8d5a0;
+    border-radius: 12px;
+    padding: 1rem 1.4rem;
+    font-size: .88rem;
+    color: #7a6040;
+  }
+  .note strong { color: #4a3728; }
+  code {
+    background: rgba(74, 55, 40, .08);
+    padding: .1rem .4rem;
+    border-radius: 4px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: .85em;
+  }
+  .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.4rem; }
+  .row button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    padding: .55rem 1rem;
+    border: 1.5px solid #C9A96E;
+    background: #fff;
+    border-radius: 20px;
+    cursor: pointer;
+    color: #4a3728;
+  }
+  .row button:hover { background: #C9A96E; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="hero">
+    <h1>chat<em>-widget</em></h1>
+    <p>Trae tu propio backend</p>
+  </div>
+
+  <div class="note">
+    <strong>Demo sin backend.</strong>
+    Esta página usa <code>onSend</code> con un mock que simula streaming token a token,
+    así que funciona sin servidor. Fíjate en que los estilos salvajes de esta página
+    (<code>Comic Sans</code> en todos los <code>button</code> y <code>textarea</code>,
+    <code>content-box</code> global) no afectan al widget: vive en un shadow root.
+  </div>
+
+  <div class="row">
+    <button onclick="widget.open()">Abrir</button>
+    <button onclick="widget.close()">Cerrar</button>
+    <button onclick="widget.addMessage('bot', 'Mensaje **inyectado** desde la página host.')">Inyectar mensaje</button>
+    <button onclick="widget.setTheme({ primary: '#6366f1', dark: '#1e1b4b' })">Tema violeta</button>
+    <button onclick="widget.reset()">Reiniciar</button>
+  </div>
+</div>
+
+<script src="../dist/chat-widget.js"></script>
+<script>
+  // ── Mock de backend con streaming ────────────────────────
+  const CANNED = {
+    cita: 'Claro, te ayudo a reservar. ¿Qué día te vendría bien?\n\nTambién puedes verlo en [nuestra agenda](https://example.com/agenda).',
+    precio: 'Los precios van de **30 €** a **120 €** según el tratamiento. ¿Te paso el detalle?',
+    hola: '¡Hola! 👋 Soy un mock, no hay backend detrás. Prueba a preguntar por _precios_ o por una _cita_.',
+  };
+
+  function reply(message) {
+    const key = Object.keys(CANNED).find((k) => message.toLowerCase().includes(k));
+    return key
+      ? CANNED[key]
+      : `Has escrito: \`${message}\`\n\nUn backend real recibiría esto en el endpoint que configures.`;
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const widget = ChatWidget.init({
+    // Nivel 3: nos encargamos del intercambio entero.
+    // Para un backend real bastaría: { endpoint: 'https://...', stream: true }
+    onSend: async (message, ctx) => {
+      await sleep(500);
+      for (const word of reply(message).split(' ')) {
+        if (ctx.signal.aborted) return;
+        ctx.append(word + ' ');
+        await sleep(45);
+      }
+    },
+
+    position: 'bottom-right',
+    avatar: '✨',
+    texts: {
+      title: 'Asistente',
+      status: 'En línea · Respuesta inmediata',
+      placeholder: 'Escríbenos…',
+      greeting: '¡Hola! 👋 ¿En qué puedo ayudarte?',
+      footer: 'chat-widget · demo',
+    },
+    quickReplies: [
+      { label: '📅 Reservar una cita', value: 'Quiero reservar una cita' },
+      { label: '✨ Ver precios', value: '¿Cuáles son los precios?' },
+    ],
+    theme: {
+      primary: '#C9A96E',
+      dark: '#2a2118',
+    },
+  });
+
+  widget.on('message', (m) => console.log('[demo]', m.role, '→', m.content));
+</script>
+
+</body>
+</html>
