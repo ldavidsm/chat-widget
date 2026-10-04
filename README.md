@@ -16,7 +16,7 @@ whatever API you already have.
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.1.0/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.2.0/dist/chat-widget.js"
         data-endpoint="https://your-api.com/chat"
         data-title="Support"
         data-greeting="Hi! How can I help?"
@@ -109,6 +109,107 @@ init({
 });
 ```
 
+## Blocks
+
+Text is not always the answer. A reply can carry structured content, and the
+widget renders it by looking the `type` up in a registry:
+
+```json
+{
+  "reply": "Pick a day that suits you",
+  "blocks": [{ "type": "calendar", "service": "Facial cleanse" }]
+}
+```
+
+Three types ship built in — `quickReplies`, `cards` and `calendar` — and every
+one of them can be replaced. Registering a type is a function that returns a
+DOM node:
+
+```js
+init({
+  endpoint: '/chat',
+  blocks: {
+    product: (data, ctx) => {
+      const node = document.createElement('div');
+      node.textContent = `${data.name} — ${data.price}`;
+      node.onclick = () => ctx.send(`I want ${data.name}`);
+      return node;
+    },
+  },
+});
+```
+
+The renderer gets `(data, ctx)`, where `data` is the block without its `type`
+and `ctx` carries `send`, `addMessage`, `render`, `locale`, `scrollToBottom`
+and `widget`. A renderer that throws is logged and skipped; the thread
+survives. Blocks also work mid-stream: emit an SSE payload with a `blocks` key
+after the text and they appear once the answer finishes.
+
+### quickReplies
+
+```json
+{ "type": "quickReplies", "options": ["Yes", { "label": "📅 Book", "value": "I want to book" }] }
+```
+
+### cards
+
+```json
+{ "type": "cards", "items": [
+  { "title": "Facial cleanse", "text": "60 min · €45", "image": "https://…",
+    "button": "Book", "value": "Book a facial cleanse" }
+]}
+```
+
+A card with a `url` becomes a link; with a `value` it sends that text back into
+the thread.
+
+### calendar
+
+By default the slots come in the payload, so your backend stays in charge of
+availability:
+
+```json
+{ "type": "calendar", "service": "Facial cleanse", "slots": [
+  { "start": "2026-10-07T10:00:00", "staff": "Ana Pérez" },
+  { "start": "2026-10-07T11:00:00" }
+]}
+```
+
+For a real agenda you want it to fetch one month at a time instead. Register
+the calendar with your own loader:
+
+```js
+import { init, blocks } from '@luisdsm/chat-widget';
+
+init({
+  endpoint: '/chat',
+  locale: 'es-ES',
+  blocks: {
+    calendar: blocks.calendar({
+      loadSlots: async ({ start, end, service }) => {
+        const res = await fetch(`/slots?from=${start}&to=${end}&service=${service}`);
+        return res.json();
+      },
+      // Default: sends "Tuesday 7 October at 10:00 with Ana" as a user message.
+      onSelect: (slot, ctx) => ctx.send(`Book ${slot.date.toISOString()}`),
+    }),
+  },
+});
+```
+
+`loadSlots` receives `{ start, end, startDate, endDate, service, year, month, ctx }`
+— `start` and `end` are local `YYYY-MM-DD` strings — and may return either
+ISO strings or objects. These shapes are all understood:
+
+```js
+'2026-10-07T10:00:00'
+{ start: '2026-10-07T10:00:00', staff: 'Ana', label: '10:00' }
+{ slot_start: '2026-10-07 10:00:00', staff_name: 'Ana' }   // Postgres style
+```
+
+Calendar options: `loadSlots`, `onSelect`, `selectMessage`, `texts`,
+`weekStart` (`1` for Monday, the default), `monthsAhead` (`3`), `locale`.
+
 ## ⚠️ API keys do not belong here
 
 The widget runs in the browser. Everything you pass to it — headers included —
@@ -156,6 +257,7 @@ async def chat(turn: Turn):
 | `transformRequest` | — | `(message, ctx) => body` |
 | `transformResponse` | — | `(data, ctx) => string \| { text, quickReplies }` |
 | `parseChunk` | — | `(payload) => string \| null` per stream chunk |
+| `blocks` | — | Block renderers: `{ type: (data, ctx) => node }` |
 | `markdown` | `true` | `false` for plain text, or your own renderer |
 | `position` | `'bottom-right'` | Or `'bottom-left'` |
 | `avatar` | `'✨'` | Emoji, or an image URL |
@@ -230,6 +332,7 @@ widget.toggle();
 widget.sendMessage('text');          // as if the user typed it
 widget.addMessage('bot', '**hi**');  // insert without calling the backend
 widget.addQuickReplies(['Yes', 'No']);
+widget.addBlock('calendar', { service: 'Facial' });
 widget.setTheme({ primary: '#111' });
 widget.reset();                      // clear thread + new session id
 widget.destroy();

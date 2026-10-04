@@ -91,6 +91,7 @@
     <button onclick="widget.open()">Abrir</button>
     <button onclick="widget.close()">Cerrar</button>
     <button onclick="widget.addMessage('bot', 'Mensaje **inyectado** desde la página host.')">Inyectar mensaje</button>
+    <button onclick="widget.addBlock('calendar', { service: 'Demo' })">Inyectar calendario</button>
     <button onclick="widget.setTheme({ primary: '#6366f1', dark: '#1e1b4b' })">Tema violeta</button>
     <button onclick="widget.reset()">Reiniciar</button>
   </div>
@@ -100,32 +101,99 @@
 <script>
   // ── Mock de backend con streaming ────────────────────────
   const CANNED = {
-    cita: 'Claro, te ayudo a reservar. ¿Qué día te vendría bien?\n\nTambién puedes verlo en [nuestra agenda](https://example.com/agenda).',
-    precio: 'Los precios van de **30 €** a **120 €** según el tratamiento. ¿Te paso el detalle?',
-    hola: '¡Hola! 👋 Soy un mock, no hay backend detrás. Prueba a preguntar por _precios_ o por una _cita_.',
+    precio: 'Los precios van de **30 €** a **120 €** según el tratamiento.',
+    hola: '¡Hola! 👋 Soy un mock, no hay backend detrás. Prueba a pedir una _cita_, los _precios_ o los _tratamientos_.',
   };
 
-  function reply(message) {
-    const key = Object.keys(CANNED).find((k) => message.toLowerCase().includes(k));
-    return key
-      ? CANNED[key]
-      : `Has escrito: \`${message}\`\n\nUn backend real recibiría esto en el endpoint que configures.`;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Huecos inventados: mañanas de lunes a sábado, dos semanas por delante.
+  function fakeSlots({ startDate, endDate }) {
+    const staff = ['Ana Pérez', 'Lucía Gómez', 'Marta Ruiz'];
+    const slots = [];
+    const limit = new Date();
+    limit.setDate(limit.getDate() + 14);
+
+    for (const day = new Date(startDate); day <= endDate; day.setDate(day.getDate() + 1)) {
+      if (day.getDay() === 0 || day > limit) continue;
+      for (const hour of [10, 11, 12, 16, 17]) {
+        if ((day.getDate() + hour) % 3 === 0) continue; // algunos ocupados
+        const start = new Date(day);
+        start.setHours(hour, 0, 0, 0);
+        slots.push({ start: start.toISOString(), staff: staff[hour % staff.length] });
+      }
+    }
+    return slots;
   }
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function reply(message) {
+    const text = message.toLowerCase();
+
+    if (text.includes('cita') || text.includes('reservar')) {
+      return {
+        text: 'Perfecto. Elige el día que te venga bien 👇',
+        blocks: [{ type: 'calendar', service: 'Limpieza facial', title: 'Elige tu fecha' }],
+      };
+    }
+
+    if (text.includes('tratamiento')) {
+      return {
+        text: 'Estos son los más pedidos:',
+        blocks: [{
+          type: 'cards',
+          items: [
+            { title: 'Limpieza facial', text: '60 min · 45 €', button: 'Reservar', value: 'Quiero reservar una limpieza facial' },
+            { title: 'Masaje descontracturante', text: '50 min · 55 €', button: 'Reservar', value: 'Quiero reservar un masaje' },
+          ],
+        }],
+      };
+    }
+
+    if (text.includes('a las')) {
+      return { text: '¡Listo! Te he apuntado. Te mandamos la confirmación por email ✨' };
+    }
+
+    const key = Object.keys(CANNED).find((k) => text.includes(k));
+    return {
+      text: key
+        ? CANNED[key]
+        : `Has escrito: \`${message}\`\n\nUn backend real recibiría esto en el endpoint que configures.`,
+    };
+  }
 
   const widget = ChatWidget.init({
     // Nivel 3: nos encargamos del intercambio entero.
     // Para un backend real bastaría: { endpoint: 'https://...', stream: true }
     onSend: async (message, ctx) => {
       await sleep(500);
-      for (const word of reply(message).split(' ')) {
+      const { text, blocks } = reply(message);
+
+      for (const word of text.split(' ')) {
         if (ctx.signal.aborted) return;
         ctx.append(word + ' ');
         await sleep(45);
       }
+      return { blocks };
     },
 
+    // El calendario se registra con su propio cargador de huecos: el widget
+    // no sabe de dónde salen, solo los pinta.
+    blocks: {
+      calendar: ChatWidget.blocks.calendar({
+        loadSlots: async (range) => {
+          await sleep(400);
+          return fakeSlots(range);
+        },
+        texts: { title: 'Elige tu fecha', noSlots: 'Sin disponibilidad', noSlotsDetail: 'No hay huecos este día' },
+        selectMessage: (slot, { locale }) => {
+          const dia = slot.date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
+          const hora = slot.date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+          return `Quiero el ${dia} a las ${hora} con ${slot.staff}`;
+        },
+      }),
+    },
+
+    locale: 'es-ES',
     position: 'bottom-right',
     avatar: '✨',
     texts: {
@@ -137,12 +205,9 @@
     },
     quickReplies: [
       { label: '📅 Reservar una cita', value: 'Quiero reservar una cita' },
-      { label: '✨ Ver precios', value: '¿Cuáles son los precios?' },
+      { label: '✨ Ver tratamientos', value: 'Quiero ver los tratamientos' },
     ],
-    theme: {
-      primary: '#C9A96E',
-      dark: '#2a2118',
-    },
+    theme: { primary: '#C9A96E', dark: '#2a2118' },
   });
 
   widget.on('message', (m) => console.log('[demo]', m.role, '→', m.content));
