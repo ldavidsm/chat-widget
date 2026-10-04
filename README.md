@@ -16,7 +16,7 @@ whatever API you already have.
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@ldavidsm/chat-widget@0.1.0/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.1.0/dist/chat-widget.js"
         data-endpoint="https://your-api.com/chat"
         data-title="Support"
         data-greeting="Hi! How can I help?"
@@ -29,11 +29,11 @@ changes a live site under you; drop `@0.1.0` only if you want the latest.
 Or with npm:
 
 ```bash
-npm install @ldavidsm/chat-widget
+npm install @luisdsm/chat-widget
 ```
 
 ```js
-import { init } from '@ldavidsm/chat-widget';
+import { init } from '@luisdsm/chat-widget';
 
 const widget = init({ endpoint: 'https://your-api.com/chat' });
 ```
@@ -93,7 +93,7 @@ Presets that fill in levels 1–2 for a known backend. An adapter is just an
 options object, so anything you pass alongside it wins.
 
 ```js
-import { init, adapters } from '@ldavidsm/chat-widget';
+import { init, adapters } from '@luisdsm/chat-widget';
 
 init({
   adapter: adapters.openai({
