@@ -1,0 +1,57 @@
+{
+  "name": "@ldavidsm/chat-widget",
+  "version": "0.1.0",
+  "description": "Drop-in chat widget UI. Bring your own backend.",
+  "keywords": [
+    "chat",
+    "widget",
+    "chatbot",
+    "shadow-dom",
+    "embeddable",
+    "llm"
+  ],
+  "license": "MIT",
+  "author": "ldavidsm",
+  "homepage": "https://github.com/ldavidsm/chat-widget#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ldavidsm/chat-widget.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ldavidsm/chat-widget/issues"
+  },
+  "type": "module",
+  "main": "dist/chat-widget.esm.js",
+  "module": "dist/chat-widget.esm.js",
+  "browser": "dist/chat-widget.js",
+  "exports": {
+    ".": {
+      "import": "./dist/chat-widget.esm.js",
+      "default": "./dist/chat-widget.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "npm run build:esm && npm run build:iife",
+    "build:esm": "esbuild src/index.js --bundle --format=esm --minify --outfile=dist/chat-widget.esm.js",
+    "build:iife": "esbuild src/global.js --bundle --format=iife --minify --outfile=dist/chat-widget.js",
+    "size": "npm run build && gzip -c dist/chat-widget.js | wc -c",
+    "test": "node --test test/*.test.mjs",
+    "demo": "esbuild src/global.js --bundle --format=iife --outfile=dist/chat-widget.js --servedir=. --watch",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
