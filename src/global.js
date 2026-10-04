@@ -1,11 +1,11 @@
 // Browser build: exposes window.ChatWidget and, when the <script> tag carries
 // a data-endpoint, boots the widget with no extra JavaScript at all.
 
-import { ChatWidget, adapters, init } from './index.js';
+import { ChatWidget, adapters, blocks, init } from './index.js';
 
 const VERSION = '0.1.0';
 
-const api = { init, ChatWidget, adapters, version: VERSION, instances: [] };
+const api = { init, ChatWidget, adapters, blocks, version: VERSION, instances: [] };
 
 const boot = (options) => {
   const widget = init(options);

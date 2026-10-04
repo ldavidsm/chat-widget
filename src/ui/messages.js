@@ -4,7 +4,7 @@ function timeLabel(locale) {
   return new Date().toLocaleTimeString(locale || undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-export function createMessageList({ render, locale, showTimes = true, onQuickReply }) {
+export function createMessageList({ render, locale, showTimes = true }) {
   const root = el('div', {
     class: 'cw-messages',
     role: 'log',
@@ -90,29 +90,12 @@ export function createMessageList({ render, locale, showTimes = true, onQuickRep
       };
     },
 
-    addQuickReplies(options) {
-      const buttons = options.map((option) => {
-        const label = typeof option === 'string' ? option : option.label;
-        const value = typeof option === 'string' ? option : (option.value ?? option.label);
-
-        return el('button', {
-          class: 'cw-quick-btn',
-          type: 'button',
-          text: label,
-          onclick: (event) => {
-            // Disable the whole group once one is picked.
-            group.querySelectorAll('button').forEach((b) => { b.disabled = true; });
-            event.currentTarget.classList.add('cw-selected');
-            onQuickReply?.(value);
-          },
-        });
-      });
-
-      const group = el('div', { class: 'cw-quick' }, buttons);
-      const node = el('div', { class: 'cw-msg cw-bot' }, [group]);
-      root.append(node);
+    // Any block renderer's node goes in here. Blocks get the full thread width.
+    addBlock(node) {
+      const wrapper = el('div', { class: 'cw-msg cw-bot cw-block' }, [node]);
+      root.append(wrapper);
       scrollToBottom();
-      return node;
+      return wrapper;
     },
 
     showTyping() {

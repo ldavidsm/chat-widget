@@ -352,6 +352,191 @@ button, textarea { font: inherit; color: inherit; }
 }
 .cw-footer a { color: inherit; }
 
+/* ── Blocks: cards ─────────────────────────────────────── */
+.cw-cards { display: flex; flex-direction: column; gap: .5rem; width: 100%; }
+.cw-cards-scroll {
+  flex-direction: row;
+  overflow-x: auto;
+  padding-bottom: .3rem;
+  scroll-snap-type: x mandatory;
+}
+.cw-cards-scroll::-webkit-scrollbar { height: 4px; }
+.cw-cards-scroll::-webkit-scrollbar-thumb { background: rgba(201, 169, 110, .3); border-radius: 2px; }
+.cw-cards-scroll .cw-card { min-width: 210px; scroll-snap-align: start; }
+
+.cw-card {
+  background: var(--cw-surface);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(42, 33, 24, .1);
+  overflow: hidden;
+  animation: cw-msg-in .25s ease both;
+}
+.cw-card-img { width: 100%; height: 120px; object-fit: cover; display: block; }
+.cw-card-body { padding: .7rem .85rem; display: flex; flex-direction: column; gap: .3rem; }
+.cw-card-title { font-weight: 600; font-size: .85rem; }
+.cw-card-text { font-size: .78rem; color: #6b5d4d; line-height: 1.45; }
+.cw-card-btn {
+  margin-top: .3rem;
+  align-self: flex-start;
+  background: transparent;
+  border: 1.5px solid var(--cw-primary);
+  border-radius: 20px;
+  padding: .35rem .85rem;
+  font-size: .75rem;
+  color: #4a3728;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.cw-card-btn:hover { background: var(--cw-primary); color: #fff; }
+
+/* ── Blocks: calendar ──────────────────────────────────── */
+.cw-cal {
+  background: var(--cw-surface);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(42, 33, 24, .1);
+  overflow: hidden;
+  width: 100%;
+  animation: cw-msg-in .25s ease both;
+}
+.cw-cal-done { opacity: .65; }
+
+.cw-cal-header {
+  background: var(--cw-dark);
+  padding: .7rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.cw-cal-title {
+  font-family: var(--cw-font-heading);
+  color: var(--cw-light);
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+.cw-cal-nav { display: flex; gap: .4rem; flex-shrink: 0; }
+.cw-cal-nav button {
+  background: rgba(201, 169, 110, .2);
+  border: none;
+  color: var(--cw-primary);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s;
+}
+.cw-cal-nav button:hover:not(:disabled) { background: rgba(201, 169, 110, .4); }
+.cw-cal-nav button:disabled { opacity: .3; cursor: not-allowed; }
+
+.cw-cal-month {
+  color: var(--cw-muted);
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  text-align: center;
+  padding: .45rem 0 .1rem;
+}
+
+.cw-cal-weekdays, .cw-cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.cw-cal-weekdays { padding: .4rem .6rem .2rem; gap: 2px; }
+.cw-cal-weekday {
+  text-align: center;
+  font-size: .58rem;
+  color: var(--cw-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.cw-cal-days { padding: .2rem .6rem .6rem; gap: 3px; }
+
+.cw-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: .78rem;
+  color: var(--cw-text);
+  cursor: default;
+  position: relative;
+  transition: background .15s, transform .15s;
+}
+.cw-cal-past, .cw-cal-no-slots { color: #d4d0ca; }
+.cw-cal-loading { color: #ddd; animation: cw-shimmer 1s ease infinite alternate; }
+@keyframes cw-shimmer {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+.cw-cal-today { box-shadow: inset 0 0 0 1.5px rgba(201, 169, 110, .4); }
+
+.cw-cal-has-slots { cursor: pointer; font-weight: 500; }
+.cw-cal-has-slots::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  background: var(--cw-primary);
+  border-radius: 50%;
+}
+.cw-cal-has-slots:hover { background: rgba(201, 169, 110, .15); transform: scale(1.1); }
+.cw-cal-has-slots:focus-visible { outline: 2px solid var(--cw-primary); outline-offset: 1px; }
+.cw-cal-selected { background: var(--cw-primary); color: #fff; font-weight: 600; }
+.cw-cal-selected::after { background: rgba(255, 255, 255, .7); }
+
+.cw-cal-slots { border-top: 1px solid rgba(201, 169, 110, .1); padding: .6rem .7rem .7rem; }
+.cw-cal-slots-title {
+  font-size: .66rem;
+  color: var(--cw-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: .5rem;
+}
+.cw-cal-slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+.cw-cal-slot {
+  background: rgba(201, 169, 110, .08);
+  border: 1.5px solid rgba(201, 169, 110, .25);
+  border-radius: 8px;
+  padding: .4rem .3rem;
+  font-size: .75rem;
+  color: #4a3728;
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.cw-cal-slot:hover:not(:disabled) {
+  background: var(--cw-primary);
+  border-color: var(--cw-primary);
+  color: #fff;
+  transform: scale(1.03);
+}
+.cw-cal-slot:focus-visible { outline: 2px solid var(--cw-dark); outline-offset: 2px; }
+.cw-cal-slot:disabled { cursor: default; opacity: .6; }
+.cw-cal-slot-staff {
+  font-size: .6rem;
+  opacity: .7;
+  display: block;
+  margin-top: .1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cw-cal-slots-empty { font-size: .78rem; color: #bbb; text-align: center; padding: .4rem 0; }
+
+/* A block message is allowed the full width of the thread. */
+.cw-msg.cw-block { max-width: 100%; width: 100%; }
+
 /* ── Mobile: the panel takes over the screen ───────────── */
 @media (max-width: 480px) {
   .cw-panel {

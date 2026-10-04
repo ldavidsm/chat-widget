@@ -51,7 +51,19 @@ function defaultParseChunk(payload) {
   return payload;
 }
 
-async function consumeStream(response, { parseChunk, emit }) {
+// Some payloads in a stream carry structured blocks rather than text; they are
+// collected out of band so a booking calendar can follow a streamed answer.
+function peekBlocks(payload) {
+  const trimmed = payload.trim();
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    return JSON.parse(trimmed).blocks ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function consumeStream(response, { parseChunk, emit, onBlocks }) {
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   const isSSE = contentType.includes('text/event-stream');
   const reader = response.body.getReader();
@@ -62,6 +74,10 @@ async function consumeStream(response, { parseChunk, emit }) {
 
   const handle = (payload) => {
     if (finished) return;
+
+    const blocks = peekBlocks(payload);
+    if (blocks) onBlocks(blocks);
+
     const piece = parseChunk(payload);
     if (piece === END || piece === false) { finished = true; return; }
     if (typeof piece === 'string' && piece) emit(piece);
@@ -177,15 +193,29 @@ export function createTransport(options = {}) {
       }
 
       if (stream && response.body) {
-        await consumeStream(response, { parseChunk, emit: ctx.append });
-        return null; // text already streamed into the bubble
+        const blocks = [];
+        await consumeStream(response, {
+          parseChunk,
+          emit: ctx.append,
+          onBlocks: (list) => blocks.push(...[].concat(list)),
+        });
+        // The text already streamed into the bubble; only blocks are left to return.
+        return blocks.length ? { blocks } : null;
       }
 
       const data = await parseBody(response);
-      const result = transformResponse ? await transformResponse(data, ctx) : pickReply(data);
 
-      if (typeof result === 'string') return { text: result };
-      return result || null;
+      if (transformResponse) {
+        const result = await transformResponse(data, ctx);
+        return typeof result === 'string' ? { text: result } : (result || null);
+      }
+
+      const payload = Array.isArray(data) ? data[0] : data;
+      return {
+        text: pickReply(data),
+        blocks: payload?.blocks ?? null,
+        quickReplies: payload?.quickReplies ?? payload?.quick_replies ?? null,
+      };
     } finally {
       if (timer) clearTimeout(timer);
       ctx.signal?.removeEventListener('abort', abort);

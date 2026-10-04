@@ -1,8 +1,10 @@
+import { createBlockRegistry, normalizeBlocks } from './blocks.js';
 import { createEmitter } from './dom.js';
 import { resolveRenderer } from './markdown.js';
 import { createSession } from './session.js';
 import { createTransport } from './transport.js';
 import { createMessageList } from '../ui/messages.js';
+import { defaultBlocks } from '../blocks/index.js';
 import { createLauncher, createPanel } from '../ui/panel.js';
 import { styles } from '../ui/styles.js';
 
@@ -51,6 +53,7 @@ export class ChatWidget {
     this.events = createEmitter();
     this.session = createSession({ key: options.key ?? 'default', ...options.session });
     this.render = resolveRenderer(options.markdown);
+    this.blocks = createBlockRegistry(options.blocks, defaultBlocks);
     this.transport = createTransport(options);
 
     // Convenience: callbacks passed as options behave like event listeners.
@@ -84,7 +87,6 @@ export class ChatWidget {
       render: this.render,
       locale: options.locale,
       showTimes: options.showTimes !== false,
-      onQuickReply: (value) => this.sendMessage(value),
     });
 
     this.launcher = createLauncher({
@@ -180,6 +182,29 @@ export class ChatWidget {
     return this.isOpen ? this.close() : this.open();
   }
 
+  // Everything a block renderer is allowed to touch.
+  #blockContext() {
+    return {
+      widget: this,
+      locale: this.options.locale,
+      send: (text) => this.sendMessage(text),
+      addMessage: (role, text) => this.addMessage(role, text),
+      render: this.render,
+      scrollToBottom: () => this.messages.scrollToBottom(),
+    };
+  }
+
+  #renderBlocks(raw) {
+    const blocks = normalizeBlocks(raw);
+    if (!blocks.length) return;
+
+    const ctx = this.#blockContext();
+    for (const block of blocks) {
+      const node = this.blocks.render(block, ctx);
+      if (node) this.messages.addBlock(node);
+    }
+  }
+
   #greet() {
     const { greeting } = this.texts;
     const { quickReplies } = this.options;
@@ -192,7 +217,7 @@ export class ChatWidget {
         this.messages.addBot(greeting);
         this.history.push({ role: 'assistant', content: greeting });
       }
-      if (quickReplies?.length) this.messages.addQuickReplies(quickReplies);
+      if (quickReplies?.length) this.#renderBlocks([{ type: 'quickReplies', options: quickReplies }]);
     }, this.options.greetingDelay ?? 400);
   }
 
@@ -240,7 +265,10 @@ export class ChatWidget {
         this.#track({ role: 'assistant', content: stream.text });
       }
 
-      if (result?.quickReplies?.length) this.messages.addQuickReplies(result.quickReplies);
+      if (result?.quickReplies?.length) {
+        this.#renderBlocks([{ type: 'quickReplies', options: result.quickReplies }]);
+      }
+      if (result?.blocks) this.#renderBlocks(result.blocks);
     } catch (error) {
       this.messages.hideTyping();
       if (stream.isEmpty) this.messages.addError(this.texts.error);
@@ -272,7 +300,12 @@ export class ChatWidget {
   }
 
   addQuickReplies(options) {
-    this.messages.addQuickReplies(options);
+    return this.addBlock('quickReplies', { options });
+  }
+
+  // Render a block from the host page, without involving the backend.
+  addBlock(type, data = {}) {
+    this.#renderBlocks([{ type, ...data }]);
     return this;
   }
 
