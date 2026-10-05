@@ -16,7 +16,7 @@ whatever API you already have.
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.2.0/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.0/dist/chat-widget.js"
         data-endpoint="https://your-api.com/chat"
         data-title="Support"
         data-greeting="Hi! How can I help?"
@@ -203,12 +203,47 @@ ISO strings or objects. These shapes are all understood:
 
 ```js
 '2026-10-07T10:00:00'
-{ start: '2026-10-07T10:00:00', staff: 'Ana', label: '10:00' }
-{ slot_start: '2026-10-07 10:00:00', staff_name: 'Ana' }   // Postgres style
+
+{ start: '2026-10-07T10:00:00+02:00',
+  end:   '2026-10-07T13:00:00+02:00',   // or duration: 180
+  resources: ['Bay 2', { label: 'Ana Pérez', type: 'staff' }],
+  label: '10:00' }                       // overrides the shown time
+
+{ slot_start: '2026-10-07 10:00:00',     // Postgres style
+  slot_end:   '2026-10-07 10:30:00',
+  staff_name: 'Ana Pérez' }
 ```
 
-Calendar options: `loadSlots`, `onSelect`, `selectMessage`, `texts`,
-`weekStart` (`1` for Monday, the default), `monthsAhead` (`3`), `locale`.
+**Duration.** Give `end` (or `duration` in minutes) and the slot shows how long
+it takes — `30 min`, `1 h 30`, `3 h`. Leave it out and only the start time
+appears, which is what a clinic with uniform appointments wants. An `end`
+earlier than the start is ignored rather than displayed as a negative.
+
+**Resources.** `resources` is anything bookable alongside the time: a person, a
+room, a bay, a machine. Entries typed `staff` are shortened to a first name in
+the grid and read as "with Ana" in the message; everything else is shown whole.
+`staff` and `staff_name` still work and land as a `staff` resource, so
+`slot.staff` keeps returning what it did before.
+
+Calendar options: `loadSlots`, `onSelect`, `selectMessage`, `texts` (including
+`texts.units` for the `h` / `min` labels), `weekStart` (`1` for Monday, the
+default), `monthsAhead` (`3`), `locale`.
+
+### ⚠️ Send timezone offsets
+
+A datetime with no offset — `2026-10-07T10:00:00` — is read by the browser as
+**the viewer's local time**, not the business's. A customer booking from
+another country sees the wrong hour, with no warning anywhere.
+
+If every visitor sits in the same timezone as the calendar, naive datetimes are
+fine. Otherwise always send the offset, and let the widget convert:
+
+```js
+'2026-10-07T10:00:00+02:00'   // or '2026-10-07T08:00:00Z'
+```
+
+The slot handed to `onSelect` carries a real `Date`, so `slot.date.toISOString()`
+is what you store.
 
 ## ⚠️ API keys do not belong here
 
@@ -357,6 +392,22 @@ For the no-JavaScript install. `data-endpoint` is what triggers auto-boot; add
 `data-title` `data-status` `data-greeting` `data-placeholder` `data-footer`
 `data-error` `data-primary` `data-dark` `data-light` `data-radius`
 `data-width` `data-height` `data-z-index`
+
+## Before you collect personal data
+
+A chat that asks for a name, a phone number or a symptom is collecting personal
+data, and in health, legal or financial contexts it is a special category under
+the GDPR. The widget gives you a reasonable baseline — only a random session id
+in `sessionStorage`, history kept in memory, no cookies, no third-party
+requests, no analytics — but the obligations land on whoever installs it:
+
+- have a lawful basis, and say what you do with the messages before they are typed
+- do not log a full transcript into a tool that was not set up to hold health data
+- let people ask for their conversation to be deleted, which means your backend
+  needs to key it by `sessionId`
+
+None of this is the widget's job to enforce. It is worth a line in your own
+docs so the person installing it does not learn it the hard way.
 
 ## Security
 

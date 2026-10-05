@@ -107,7 +107,8 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Huecos inventados: mañanas de lunes a sábado, dos semanas por delante.
+  // Huecos inventados: de lunes a sábado, dos semanas por delante.
+  // Van con offset (toISOString da Z) y con end, para que se vea la duración.
   function fakeSlots({ startDate, endDate }) {
     const staff = ['Ana Pérez', 'Lucía Gómez', 'Marta Ruiz'];
     const slots = [];
@@ -116,11 +117,23 @@
 
     for (const day = new Date(startDate); day <= endDate; day.setDate(day.getDate() + 1)) {
       if (day.getDay() === 0 || day > limit) continue;
+
       for (const hour of [10, 11, 12, 16, 17]) {
         if ((day.getDate() + hour) % 3 === 0) continue; // algunos ocupados
+
         const start = new Date(day);
         start.setHours(hour, 0, 0, 0);
-        slots.push({ start: start.toISOString(), staff: staff[hour % staff.length] });
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + 60);
+
+        slots.push({
+          start: start.toISOString(),
+          end: end.toISOString(),
+          resources: [
+            { label: staff[hour % staff.length], type: 'staff' },
+            { label: `Cabina ${1 + (hour % 2)}`, type: 'resource' },
+          ],
+        });
       }
     }
     return slots;
@@ -184,11 +197,17 @@
           await sleep(400);
           return fakeSlots(range);
         },
-        texts: { title: 'Elige tu fecha', noSlots: 'Sin disponibilidad', noSlotsDetail: 'No hay huecos este día' },
+        texts: {
+          title: 'Elige tu fecha',
+          noSlots: 'Sin disponibilidad',
+          noSlotsDetail: 'No hay huecos este día',
+          units: { hour: 'h', minute: 'min' },
+        },
         selectMessage: (slot, { locale }) => {
           const dia = slot.date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
           const hora = slot.date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-          return `Quiero el ${dia} a las ${hora} con ${slot.staff}`;
+          const sitio = slot.resources.map((r) => r.label).join(', ');
+          return `Quiero el ${dia} a las ${hora} (${slot.duration} min) con ${sitio}`;
         },
       }),
     },
