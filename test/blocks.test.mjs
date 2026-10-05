@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { normalizeBlocks, createBlockRegistry } from '../src/core/blocks.js';
-import { dateKey, parseSlot, groupSlots, monthGrid, weekdayLabels } from '../src/blocks/calendar.js';
+import {
+  dateKey, parseSlot, groupSlots, monthGrid, weekdayLabels,
+  normalizeResources, formatDuration,
+} from '../src/blocks/calendar.js';
 import { createTransport } from '../src/core/transport.js';
 
 // ── Block normalization ──
@@ -124,6 +127,84 @@ test('weekdayLabels returns seven labels in the requested order', () => {
   assert.equal(sunday.length, 7);
   assert.notEqual(monday[0], sunday[0]);
   assert.equal(monday[0], sunday[1], 'shifting the start rotates the labels');
+});
+
+// ── Duration ──
+
+test('parseSlot derives the duration from end', () => {
+  const slot = parseSlot({ start: '2026-10-07T10:00:00', end: '2026-10-07T13:00:00' });
+  assert.equal(slot.duration, 180);
+  assert.equal(slot.end.getHours(), 13);
+});
+
+test('parseSlot accepts the Postgres end field', () => {
+  const slot = parseSlot({ slot_start: '2026-10-07 09:00:00', slot_end: '2026-10-07 09:30:00' });
+  assert.equal(slot.duration, 30);
+});
+
+test('an explicit duration wins over end', () => {
+  const slot = parseSlot({ start: '2026-10-07T10:00:00', end: '2026-10-07T13:00:00', duration: 45 });
+  assert.equal(slot.duration, 45);
+});
+
+test('duration_minutes is understood too', () => {
+  assert.equal(parseSlot({ start: '2026-10-07T10:00:00', duration_minutes: 90 }).duration, 90);
+});
+
+test('a slot without end has no duration', () => {
+  assert.equal(parseSlot('2026-10-07T10:00:00').duration, null);
+});
+
+test('an end before the start is ignored, not shown as negative', () => {
+  const slot = parseSlot({ start: '2026-10-07T13:00:00', end: '2026-10-07T10:00:00' });
+  assert.equal(slot.duration, null);
+});
+
+test('formatDuration reads naturally at every scale', () => {
+  assert.equal(formatDuration(30), '30 min');
+  assert.equal(formatDuration(60), '1 h');
+  assert.equal(formatDuration(90), '1 h 30');
+  assert.equal(formatDuration(180), '3 h');
+  assert.equal(formatDuration(0), null);
+  assert.equal(formatDuration(null), null);
+});
+
+test('formatDuration units can be localized', () => {
+  assert.equal(formatDuration(45, { minute: 'minutos' }), '45 minutos');
+});
+
+// ── Resources ──
+
+test('legacy staff fields become a staff resource', () => {
+  assert.deepEqual(normalizeResources({ staff_name: 'Ana Pérez' }), [{ label: 'Ana Pérez', type: 'staff' }]);
+  assert.deepEqual(normalizeResources({ staff: 'Ana' }), [{ label: 'Ana', type: 'staff' }]);
+});
+
+test('resources accept strings and typed objects', () => {
+  assert.deepEqual(
+    normalizeResources({ resources: ['Box 2', { label: 'Lucía', type: 'staff' }] }),
+    [{ label: 'Box 2', type: 'resource' }, { label: 'Lucía', type: 'staff' }],
+  );
+});
+
+test('a room sits alongside the person', () => {
+  const list = normalizeResources({ staff_name: 'Dr. Ruiz', room: 'Consulta 3' });
+  assert.equal(list.length, 2);
+  assert.ok(list.some((r) => r.label === 'Consulta 3' && r.type === 'resource'));
+});
+
+test('the same resource given twice is not duplicated', () => {
+  assert.equal(normalizeResources({ staff: 'Ana', resources: [{ label: 'Ana', type: 'staff' }] }).length, 1);
+});
+
+test('slot.staff still works for code written against 0.2', () => {
+  const slot = parseSlot({ start: '2026-10-07T10:00:00', resources: [{ label: 'Ana', type: 'staff' }] });
+  assert.equal(slot.staff, 'Ana');
+});
+
+test('a slot with no resources reports an empty list, not null', () => {
+  assert.deepEqual(parseSlot('2026-10-07T10:00:00').resources, []);
+  assert.equal(parseSlot('2026-10-07T10:00:00').staff, null);
 });
 
 // ── Blocks over the wire ──
