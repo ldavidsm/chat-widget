@@ -503,7 +503,13 @@ button, textarea { font: inherit; color: inherit; }
   letter-spacing: 1px;
   margin-bottom: .5rem;
 }
-.cw-cal-slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+/* auto-fill, because a slot with a duration and a resource needs more room
+   than a bare "10:00" does */
+.cw-cal-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: .35rem;
+}
 .cw-cal-slot {
   background: rgba(201, 169, 110, .08);
   border: 1.5px solid rgba(201, 169, 110, .25);
@@ -523,7 +529,7 @@ button, textarea { font: inherit; color: inherit; }
 }
 .cw-cal-slot:focus-visible { outline: 2px solid var(--cw-dark); outline-offset: 2px; }
 .cw-cal-slot:disabled { cursor: default; opacity: .6; }
-.cw-cal-slot-staff {
+.cw-cal-slot-meta {
   font-size: .6rem;
   opacity: .7;
   display: block;

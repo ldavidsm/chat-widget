@@ -10,27 +10,86 @@ export function dateKey(date) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+// "2026-10-07 10:00:00" (Postgres style) is not valid ISO in every browser.
+//
+// A datetime with no offset is read as the VIEWER's local time, not the
+// business's. Send offsets ("…T10:00:00+02:00") unless every visitor sits in
+// the same timezone as the calendar.
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(String(value).replace(' ', 'T'));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Anything bookable alongside the time: a person, a room, a bay, a machine.
+// `staff` and `staff_name` keep working and land as type 'staff'.
+export function normalizeResources(object) {
+  const list = [];
+
+  const push = (value, fallbackType) => {
+    if (!value) return;
+    const entry = typeof value === 'string'
+      ? { label: value, type: fallbackType }
+      : value.label
+        ? { label: value.label, type: value.type ?? fallbackType }
+        : null;
+    if (!entry) return;
+    if (list.some((r) => r.label === entry.label && r.type === entry.type)) return;
+    list.push(entry);
+  };
+
+  for (const item of [].concat(object.resources ?? [])) push(item, 'resource');
+  push(object.staff ?? object.staff_name, 'staff');
+  push(object.room ?? object.resource, 'resource');
+
+  return list;
+}
+
 // Accepts an ISO string or an object from whatever your backend already returns.
 export function parseSlot(raw) {
   if (!raw) return null;
 
+  const object = typeof raw === 'object' ? raw : {};
   const start = typeof raw === 'string'
     ? raw
-    : raw.start ?? raw.slot_start ?? raw.datetime ?? raw.at ?? raw.time;
-  if (!start) return null;
+    : object.start ?? object.slot_start ?? object.datetime ?? object.at ?? object.time;
 
-  // "2026-10-07 10:00:00" (Postgres style) is not valid ISO in every browser.
-  const date = new Date(String(start).replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return null;
+  const date = parseDate(start);
+  if (!date) return null;
 
-  const object = typeof raw === 'object' ? raw : {};
+  const end = parseDate(object.end ?? object.slot_end ?? object.finish);
+  const minutes = object.duration ?? object.duration_minutes
+    ?? (end ? Math.round((end - date) / 60000) : null);
+
+  const resources = normalizeResources(object);
+  const staff = resources.find((r) => r.type === 'staff')?.label ?? null;
+
   return {
     date,
+    end,
+    // Negative or absurd durations are treated as missing rather than shown.
+    duration: minutes > 0 ? minutes : null,
     key: dateKey(date),
-    staff: object.staff ?? object.staff_name ?? null,
+    resources,
+    staff,
     label: object.label ?? null,
     raw,
   };
+}
+
+// "30 min", "1 h", "1 h 30", "3 h"
+export function formatDuration(minutes, texts = {}) {
+  if (!(minutes > 0)) return null;
+
+  const hourUnit = texts.hour ?? 'h';
+  const minuteUnit = texts.minute ?? 'min';
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  if (!hours) return `${rest} ${minuteUnit}`;
+  if (!rest) return `${hours} ${hourUnit}`;
+  return `${hours} ${hourUnit} ${rest}`;
 }
 
 export function groupSlots(list) {
@@ -71,6 +130,7 @@ export function weekdayLabels(locale, weekStart = 1) {
 
 const DEFAULT_TEXTS = {
   title: 'Pick a date',
+  units: { hour: 'h', minute: 'min' },
   noSlots: 'No availability',
   noSlotsDetail: 'Nothing free on this day',
   prev: 'Previous month',
@@ -78,7 +138,7 @@ const DEFAULT_TEXTS = {
   loadFailed: 'Could not load availability',
 };
 
-function defaultSelectMessage(slot, { locale, service }) {
+function defaultSelectMessage(slot, { locale, service, texts = {} }) {
   const day = slot.date.toLocaleDateString(locale || undefined, {
     weekday: 'long', day: 'numeric', month: 'long',
   });
@@ -87,8 +147,17 @@ function defaultSelectMessage(slot, { locale, service }) {
   });
 
   const parts = [`${day} at ${time}`];
-  if (slot.staff) parts.push(`with ${slot.staff}`);
+
+  const duration = formatDuration(slot.duration, texts.units);
+  if (duration) parts.push(`(${duration})`);
+
+  const people = slot.resources.filter((r) => r.type === 'staff').map((r) => r.label);
+  const things = slot.resources.filter((r) => r.type !== 'staff').map((r) => r.label);
+
+  if (people.length) parts.push(`with ${people.join(', ')}`);
+  if (things.length) parts.push(`· ${things.join(', ')}`);
   if (service) parts.push(`— ${service}`);
+
   return parts.join(' ');
 }
 
@@ -175,7 +244,7 @@ export function calendar(config = {}) {
       render();
 
       if (onSelect) onSelect(slot, { ...ctx, service });
-      else ctx.send(selectMessage(slot, { locale, service, ctx }));
+      else ctx.send(selectMessage(slot, { locale, service, texts, ctx }));
     }
 
     function renderSlots() {
@@ -195,10 +264,13 @@ export function calendar(config = {}) {
 
       const grid = el('div', { class: 'cw-cal-slots-grid' });
 
+      const timeOf = (date) => date.toLocaleTimeString(locale || undefined, {
+        hour: '2-digit', minute: '2-digit',
+      });
+
       for (const slot of slots) {
-        const time = slot.label ?? slot.date.toLocaleTimeString(locale || undefined, {
-          hour: '2-digit', minute: '2-digit',
-        });
+        const time = slot.label ?? timeOf(slot.date);
+        const duration = formatDuration(slot.duration, texts.units);
 
         const button = el('button', {
           class: 'cw-cal-slot',
@@ -207,11 +279,23 @@ export function calendar(config = {}) {
           onclick: () => pickSlot(slot),
         }, [el('span', { text: time })]);
 
-        // Only the first name fits; the full one stays in the title.
-        if (slot.staff) {
-          button.append(el('span', { class: 'cw-cal-slot-staff', text: slot.staff.split(' ')[0] }));
-          button.setAttribute('title', slot.staff);
+        // Second line is tight, so people show as a first name only and the
+        // full detail lives in the tooltip.
+        const meta = [
+          duration,
+          ...slot.resources.map((r) => (r.type === 'staff' ? r.label.split(' ')[0] : r.label)),
+        ].filter(Boolean);
+
+        if (meta.length) {
+          button.append(el('span', { class: 'cw-cal-slot-meta', text: meta.join(' · ') }));
         }
+
+        button.setAttribute('title', [
+          slot.end ? `${time} – ${timeOf(slot.end)}` : time,
+          duration,
+          ...slot.resources.map((r) => r.label),
+        ].filter(Boolean).join(' · '));
+
         grid.append(button);
       }
 
