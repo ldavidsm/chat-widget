@@ -63,7 +63,7 @@ function peekBlocks(payload) {
   }
 }
 
-async function consumeStream(response, { parseChunk, emit, onBlocks }) {
+async function consumeStream(response, { parseChunk, emit, onBlocks, onProgress }) {
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   const isSSE = contentType.includes('text/event-stream');
   const reader = response.body.getReader();
@@ -95,6 +95,7 @@ async function consumeStream(response, { parseChunk, emit, onBlocks }) {
   while (!finished) {
     const { done, value } = await reader.read();
     if (done) break;
+    onProgress?.();
     buffer += decoder.decode(value, { stream: true });
 
     if (isSSE) {
@@ -172,7 +173,17 @@ export function createTransport(options = {}) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     ctx.signal?.addEventListener('abort', abort, { once: true });
-    const timer = timeout ? setTimeout(abort, timeout) : null;
+
+    // `timeout` is how long we wait for the NEXT byte, not a budget for the
+    // whole answer: every chunk resets it. A tool-calling backend can
+    // legitimately spend two minutes on one reply, and a total budget cut it
+    // off mid-sentence with nothing on screen to explain why.
+    let timer = timeout ? setTimeout(abort, timeout) : null;
+    const touch = () => {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = setTimeout(abort, timeout);
+    };
 
     try {
       const response = await fetch(endpoint, {
@@ -198,6 +209,7 @@ export function createTransport(options = {}) {
           parseChunk,
           emit: ctx.append,
           onBlocks: (list) => blocks.push(...[].concat(list)),
+          onProgress: touch,
         });
         // The text already streamed into the bubble; only blocks are left to return.
         return blocks.length ? { blocks } : null;

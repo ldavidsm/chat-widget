@@ -157,3 +157,59 @@ test('onSend bypasses fetch entirely', async () => {
 test('requires an endpoint or onSend', () => {
   assert.throws(() => createTransport({}), /endpoint/);
 });
+
+// ── `timeout` is an idle timeout, not a budget for the whole answer ──
+
+// Honours the abort signal, unlike the instant helper above, so the timeout
+// has something observable to do.
+function slowSseResponse(chunks, gapMs, signal) {
+  const encoder = new TextEncoder();
+  let index = 0;
+
+  const body = new ReadableStream({
+    async pull(controller) {
+      if (index >= chunks.length) return controller.close();
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, gapMs);
+        signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new Error('aborted'));
+        }, { once: true });
+      });
+      controller.enqueue(encoder.encode(chunks[index++]));
+    },
+  });
+
+  return new Response(body, { headers: { 'content-type': 'text/event-stream' } });
+}
+
+test('a slow but steady stream is not cut off by the timeout', async () => {
+  // Eight chunks 25ms apart is 200ms in total — well past the 120ms timeout,
+  // but never 120ms without a byte. A total budget truncated answers like
+  // this mid-sentence, with nothing on screen to explain why.
+  const chunks = Array.from({ length: 8 }, (_, i) => `data: {"text":"${i}"}\n\n`);
+  global.fetch = async (_url, init) => slowSseResponse(chunks, 25, init.signal);
+
+  const collected = [];
+  const send = createTransport({
+    endpoint: 'https://api.test/stream',
+    stream: true,
+    timeout: 120,
+  });
+
+  await send('hi', ctx(collected));
+  assert.equal(collected.join(''), '01234567');
+});
+
+test('a stream that genuinely stalls still times out', async () => {
+  global.fetch = async (_url, init) =>
+    slowSseResponse(['data: {"text":"hola"}\n\n', 'data: {"text":"nunca"}\n\n'], 400, init.signal);
+
+  const send = createTransport({
+    endpoint: 'https://api.test/stream',
+    stream: true,
+    timeout: 80,
+  });
+
+  await assert.rejects(() => send('hi', ctx([])));
+});
