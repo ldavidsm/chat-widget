@@ -254,3 +254,14 @@ test('top-level quickReplies are picked up too', async () => {
   const result = await send('hi', { sessionId: 's', history: [], append() {} });
   assert.deepEqual(result.quickReplies, ['Yes', 'No']);
 });
+
+// ── The version the page can read must be the version that was published ──
+
+test('window.ChatWidget.version matches package.json', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../src/global.js', import.meta.url), 'utf8');
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+  const declared = source.match(/const VERSION = '([^']+)'/)?.[1];
+  assert.equal(declared, pkg.version, 'bump VERSION in src/global.js with the package');
+});

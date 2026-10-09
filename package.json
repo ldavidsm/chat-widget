@@ -1,6 +1,6 @@
 {
   "name": "@luisdsm/chat-widget",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Drop-in chat widget UI. Bring your own backend.",
   "keywords": [
     "chat",
