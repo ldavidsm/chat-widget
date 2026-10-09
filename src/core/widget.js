@@ -258,10 +258,16 @@ export class ChatWidget {
 
       if (reply) stream.set(reply);
 
-      if (stream.isEmpty && !reply) {
+      // A backend answering with a calendar and no prose is answering, not
+      // failing. Counting it as empty showed "something went wrong" directly
+      // above a working block.
+      const answered = normalizeBlocks(result?.blocks).length > 0
+        || (result?.quickReplies?.length ?? 0) > 0;
+
+      if (stream.isEmpty && !reply && !answered) {
         this.messages.addError(this.texts.error);
         this.events.emit('error', new Error('Empty response from backend'));
-      } else {
+      } else if (stream.text) {
         this.#track({ role: 'assistant', content: stream.text });
       }
 
