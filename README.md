@@ -288,7 +288,7 @@ async def chat(turn: Turn):
 | `method` | `'POST'` | HTTP method |
 | `headers` | — | Object, or a function `(ctx) => headers` |
 | `credentials` | — | Passed to `fetch` (`'include'` for cookie auth) |
-| `timeout` | `60000` | Abort after this many ms |
+| `timeout` | `60000` | Abort after this many ms **without a byte arriving**. Reset by every chunk, so it bounds a stall, not the length of an answer |
 | `transformRequest` | — | `(message, ctx) => body` |
 | `transformResponse` | — | `(data, ctx) => string \| { text, quickReplies }` |
 | `parseChunk` | — | `(payload) => string \| null` per stream chunk |
