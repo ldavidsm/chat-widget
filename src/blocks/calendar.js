@@ -17,7 +17,18 @@ export function dateKey(date) {
 // the same timezone as the calendar.
 function parseDate(value) {
   if (!value) return null;
-  const date = new Date(String(value).replace(' ', 'T'));
+
+  // Postgres renders a timestamptz as "2026-10-07 10:00:00+02": a space where
+  // ISO wants a T, and an offset with no minutes, which V8 refuses outright.
+  // Passed through untouched the slot simply vanishes from the calendar, with
+  // no error anywhere — so both are normalised here. The offset pattern
+  // requires a time in front of it, or a bare "2026-10-07" would have its day
+  // read as an offset.
+  const text = String(value)
+    .replace(' ', 'T')
+    .replace(/(T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)([+-]\d{2})$/, '$1$2:00');
+
+  const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 

@@ -265,3 +265,32 @@ test('window.ChatWidget.version matches package.json', async () => {
   const declared = source.match(/const VERSION = '([^']+)'/)?.[1];
   assert.equal(declared, pkg.version, 'bump VERSION in src/global.js with the package');
 });
+
+// ── Postgres renders timestamptz with a bare-hour offset ──
+
+test('parseSlot reads a Postgres timestamptz verbatim', () => {
+  // psql prints "2026-10-07 10:00:00+02": space instead of T, and an offset
+  // with no minutes that V8 refuses. Untouched, the slot disappeared from the
+  // calendar with nothing logged.
+  const slot = parseSlot({ slot_start: '2026-10-07 10:00:00+02' });
+  assert.ok(slot, 'the slot must survive');
+  assert.equal(slot.date.toISOString(), '2026-10-07T08:00:00.000Z');
+});
+
+test('a negative bare-hour offset works too', () => {
+  const slot = parseSlot('2026-10-07T10:00:00-05');
+  assert.equal(slot.date.toISOString(), '2026-10-07T15:00:00.000Z');
+});
+
+test('a date with no time is not mistaken for an offset', () => {
+  // "2026-10-07" ends in "-07": a looser pattern read the day as an offset.
+  const slot = parseSlot('2026-10-07');
+  assert.ok(slot);
+  assert.equal(dateKey(slot.date), '2026-10-07');
+});
+
+test('offsets that were already valid are untouched', () => {
+  for (const value of ['2026-10-07T10:00:00+02:00', '2026-10-07T08:00:00Z']) {
+    assert.equal(parseSlot(value).date.toISOString(), '2026-10-07T08:00:00.000Z', value);
+  }
+});
