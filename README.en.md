@@ -1,5 +1,7 @@
 # chat-widget
 
+*[Español](https://github.com/ldavidsm/chat-widget/blob/main/README.md) · **English***
+
 A drop-in chat UI for any website. **You bring the backend.**
 
 It is the part nobody wants to build — bubble, panel, streaming, markdown,
@@ -24,7 +26,7 @@ streaming, cards and a bookable calendar, running with no backend at all.
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.0/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.1/dist/chat-widget.js"
         data-endpoint="https://your-api.com/chat"
         data-title="Support"
         data-greeting="Hi! How can I help?"
@@ -180,8 +182,8 @@ availability:
 
 ```json
 { "type": "calendar", "service": "Facial cleanse", "slots": [
-  { "start": "2026-10-07T10:00:00", "staff": "Ana Pérez" },
-  { "start": "2026-10-07T11:00:00" }
+  { "start": "2026-10-07T10:00:00+02:00", "staff": "Ana Pérez" },
+  { "start": "2026-10-07T11:00:00+02:00" }
 ]}
 ```
 
@@ -212,17 +214,22 @@ init({
 ISO strings or objects. These shapes are all understood:
 
 ```js
-'2026-10-07T10:00:00'
+'2026-10-07T10:00:00+02:00'
 
 { start: '2026-10-07T10:00:00+02:00',
   end:   '2026-10-07T13:00:00+02:00',   // or duration: 180
   resources: ['Bay 2', { label: 'Ana Pérez', type: 'staff' }],
   label: '10:00' }                       // overrides the shown time
 
-{ slot_start: '2026-10-07 10:00:00',     // Postgres style
-  slot_end:   '2026-10-07 10:30:00',
+{ slot_start: '2026-10-07 10:00:00+02',  // Postgres style
+  slot_end:   '2026-10-07 10:30:00+02',
   staff_name: 'Ana Pérez' }
 ```
+
+The last one is what a Postgres `timestamptz` prints verbatim: a space where
+ISO wants a `T`, and an offset with no minutes. Browsers reject both, so they
+are normalised before parsing — otherwise the slot vanished from the calendar
+with nothing logged anywhere.
 
 **Duration.** Give `end` (or `duration` in minutes) and the slot shows how long
 it takes — `30 min`, `1 h 30`, `3 h`. Leave it out and only the start time
