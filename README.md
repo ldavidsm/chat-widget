@@ -7,7 +7,15 @@ mobile, accessibility — with no opinion about where the answers come from.
 Point it at an endpoint and it works; reshape the request and it works with
 whatever API you already have.
 
-- **~9 KB gzipped**, zero dependencies
+**[Live demo →](https://ldavidsm.github.io/chat-widget/)** — the panel, token
+streaming, cards and a bookable calendar, running with no backend at all.
+
+<!-- Record a 6s GIF of the calendar appearing inside the chat, drop it in
+     docs/demo.gif and uncomment:
+![chat-widget](https://ldavidsm.github.io/chat-widget/demo.gif)
+-->
+
+- **~13 KB gzipped**, zero dependencies
 - **Shadow DOM** — host CSS cannot reach in, widget CSS cannot leak out
 - **Streaming** — SSE, NDJSON or plain text
 - **No keys in the browser** — the widget talks to *your* backend, nothing else
@@ -23,8 +31,10 @@ whatever API you already have.
         async></script>
 ```
 
-That is the whole integration. Pin the version as above so a release never
-changes a live site under you; drop `@0.1.0` only if you want the latest.
+That is the whole integration. Pin the exact version as above so a release
+never changes a live site under you. `@0.3` tracks the latest 0.3.x, and
+dropping the version entirely always serves the newest — convenient for a demo,
+a bad idea on a client's site.
 
 Or with npm:
 
@@ -426,12 +436,17 @@ docs so the person installing it does not learn it the hard way.
 npm install
 npm test     # node --test, no browser needed
 npm run build
-npm run demo # builds, watches and serves the repo — open /demo/
+npm run demo # builds, watches and serves the repo — open /docs/
 ```
 
 `dist/` is a build artifact and is not in git: run `npm run build` (or
 `npm run demo`) once after cloning, or the demo page will have no script to
 load. Publishing rebuilds and runs the tests automatically.
+
+The demo page lives in `docs/` because that is the folder GitHub Pages can
+serve as the site root. It loads the local build when opened from localhost and
+the published package from jsDelivr otherwise, so the same file is both the
+development harness and the public demo.
 
 ## License
 
