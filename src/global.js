@@ -4,7 +4,7 @@
 import { ChatWidget, adapters, blocks, init } from './index.js';
 
 // Kept in step with package.json by a test, so it cannot drift again.
-const VERSION = '0.3.1';
+const VERSION = '0.3.2';
 
 const api = { init, ChatWidget, adapters, blocks, version: VERSION, instances: [] };
 

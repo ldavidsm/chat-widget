@@ -26,7 +26,7 @@ streaming, cards and a bookable calendar, running with no backend at all.
 ## Install
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.1/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.2/dist/chat-widget.js"
         data-endpoint="https://your-api.com/chat"
         data-title="Support"
         data-greeting="Hi! How can I help?"

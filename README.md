@@ -27,7 +27,7 @@ sin ningún backend detrás.
 ## Instalar
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.1/dist/chat-widget.js"
+<script src="https://cdn.jsdelivr.net/npm/@luisdsm/chat-widget@0.3.2/dist/chat-widget.js"
         data-endpoint="https://tu-api.com/chat"
         data-title="Soporte"
         data-greeting="¡Hola! ¿En qué puedo ayudarte?"
