@@ -242,9 +242,25 @@ the grid and read as "with Ana" in the message; everything else is shown whole.
 `staff` and `staff_name` still work and land as a `staff` resource, so
 `slot.staff` keeps returning what it did before.
 
-Calendar options: `loadSlots`, `onSelect`, `selectMessage`, `texts` (including
-`texts.units` for the `h` / `min` labels), `weekStart` (`1` for Monday, the
-default), `monthsAhead` (`3`), `locale`.
+Calendar options: `loadSlots`, `onSelect`, `selectMessage`, `texts`,
+`weekStart` (`1` for Monday, the default), `monthsAhead` (`3`), `locale`.
+
+**Translate the connectors.** The date and time in the message a picked slot
+sends are formatted by `Intl` and follow your `locale`; the words between them
+do not — they default to English. With `locale: 'es-ES'` and nothing else set
+you get *"14 de octubre de 2026 at 11:00 with Marta Ruiz"*.
+
+```js
+blocks.calendar({
+  texts: { at: 'a las', with: 'con', units: { hour: 'h', minute: 'min' } },
+})
+```
+
+**The message carries the year on purpose**, which is why it is long. It is not
+only for the reader: that text enters the conversation as the visitor's own
+message, so an agent booking the slot has to rebuild the ISO datetime from the
+sentence. With no year in sight it guesses — on the first run against a real
+model it booked twelve months in the past, with every other field correct.
 
 ### ⚠️ Send timezone offsets
 

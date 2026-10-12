@@ -247,9 +247,27 @@ acortan al nombre de pila en la rejilla y se leen como "con Ana" en el mensaje;
 el resto se muestra entero. `staff` y `staff_name` siguen funcionando y acaban
 como un recurso `staff`, así que `slot.staff` devuelve lo mismo que antes.
 
-Opciones del calendario: `loadSlots`, `onSelect`, `selectMessage`, `texts`
-(incluido `texts.units` para las etiquetas `h` / `min`), `weekStart` (`1` para
-lunes, el valor por defecto), `monthsAhead` (`3`), `locale`.
+Opciones del calendario: `loadSlots`, `onSelect`, `selectMessage`, `texts`,
+`weekStart` (`1` para lunes, el valor por defecto), `monthsAhead` (`3`),
+`locale`.
+
+**Traduce los conectores.** La fecha y la hora del mensaje que manda un hueco
+elegido las formatea `Intl` y siguen tu `locale`, pero las palabras que van
+entre ellas no: por defecto están en inglés. Con `locale: 'es-ES'` y sin tocar
+nada sale *«14 de octubre de 2026 at 11:00 with Marta Ruiz»*.
+
+```js
+blocks.calendar({
+  texts: { at: 'a las', with: 'con', units: { hour: 'h', minute: 'min' } },
+})
+```
+
+**El mensaje lleva el año a propósito**, y es largo por eso. No es solo para
+quien lo lee: ese texto entra en la conversación como mensaje de la persona, así
+que un agente que vaya a reservar el hueco tiene que reconstruir la fecha ISO a
+partir de esa frase. Sin año a la vista lo adivina — en la primera prueba contra
+un modelo real reservó doce meses en el pasado, con todos los demás campos
+correctos.
 
 ### ⚠️ Manda el offset de la zona horaria
 

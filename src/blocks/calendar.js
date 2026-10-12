@@ -142,6 +142,12 @@ export function weekdayLabels(locale, weekStart = 1) {
 const DEFAULT_TEXTS = {
   title: 'Pick a date',
   units: { hour: 'h', minute: 'min' },
+  // Connectors for the message a picked slot sends. The date and time around
+  // them come from `Intl` and follow `locale`, so leaving these in English
+  // produced "14 de octubre de 2026 at 11:00 with Marta" — half translated,
+  // and visible to every visitor.
+  at: 'at',
+  with: 'with',
   noSlots: 'No availability',
   noSlotsDetail: 'Nothing free on this day',
   prev: 'Previous month',
@@ -149,15 +155,20 @@ const DEFAULT_TEXTS = {
   loadFailed: 'Could not load availability',
 };
 
-function defaultSelectMessage(slot, { locale, service, texts = {} }) {
+export function defaultSelectMessage(slot, { locale, service, texts = {} }) {
+  // The year is here for the model, not the reader. This string goes into the
+  // conversation as the visitor's own message, so an agent booking the slot has
+  // to rebuild the ISO datetime from it — and with no year in sight it guesses,
+  // which books the appointment twelve months off with every field looking
+  // plausible. A date is cheap; a silently wrong year is not.
   const day = slot.date.toLocaleDateString(locale || undefined, {
-    weekday: 'long', day: 'numeric', month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
   const time = slot.date.toLocaleTimeString(locale || undefined, {
     hour: '2-digit', minute: '2-digit',
   });
 
-  const parts = [`${day} at ${time}`];
+  const parts = [`${day} ${texts.at ?? 'at'} ${time}`];
 
   const duration = formatDuration(slot.duration, texts.units);
   if (duration) parts.push(`(${duration})`);
@@ -165,7 +176,7 @@ function defaultSelectMessage(slot, { locale, service, texts = {} }) {
   const people = slot.resources.filter((r) => r.type === 'staff').map((r) => r.label);
   const things = slot.resources.filter((r) => r.type !== 'staff').map((r) => r.label);
 
-  if (people.length) parts.push(`with ${people.join(', ')}`);
+  if (people.length) parts.push(`${texts.with ?? 'with'} ${people.join(', ')}`);
   if (things.length) parts.push(`· ${things.join(', ')}`);
   if (service) parts.push(`— ${service}`);
 
@@ -373,16 +384,22 @@ export function calendar(config = {}) {
         weekdayLabels(locale, weekStart).map((label) =>
           el('div', { class: 'cw-cal-weekday', text: label })));
 
+      const tail = state.status === 'error'
+        ? el('div', { class: 'cw-cal-slots' }, [
+            el('div', { class: 'cw-cal-slots-empty', text: texts.loadFailed }),
+          ])
+        : renderSlots();
+
+      // replaceChildren() is a raw DOM call, not our el() helper, and it
+      // stringifies anything that is not a Node — so renderSlots() returning
+      // null with no day selected painted the literal word "null" under the
+      // grid. Spread an empty list instead.
       card.replaceChildren(
         header,
         el('div', { class: 'cw-cal-month', text: monthLabel }),
         weekdays,
         renderDays(),
-        state.status === 'error'
-          ? el('div', { class: 'cw-cal-slots' }, [
-              el('div', { class: 'cw-cal-slots-empty', text: texts.loadFailed }),
-            ])
-          : renderSlots(),
+        ...(tail ? [tail] : []),
       );
 
       ctx.scrollToBottom?.();

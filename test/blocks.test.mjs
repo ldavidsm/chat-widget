@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { normalizeBlocks, createBlockRegistry } from '../src/core/blocks.js';
 import {
   dateKey, parseSlot, groupSlots, monthGrid, weekdayLabels,
-  normalizeResources, formatDuration,
+  normalizeResources, formatDuration, defaultSelectMessage,
 } from '../src/blocks/calendar.js';
 import { createTransport } from '../src/core/transport.js';
 
@@ -293,4 +293,50 @@ test('offsets that were already valid are untouched', () => {
   for (const value of ['2026-10-07T10:00:00+02:00', '2026-10-07T08:00:00Z']) {
     assert.equal(parseSlot(value).date.toISOString(), '2026-10-07T08:00:00.000Z', value);
   }
+});
+
+// ── The message a picked slot sends is read by an agent, not just a human ──
+
+test('the select message carries the year', () => {
+  // Without it, an agent rebuilding the ISO datetime from this sentence has to
+  // guess the year. In the first real run against a model it guessed 2025 for
+  // a 2026 slot and booked the appointment twelve months in the past, with
+  // every other field correct.
+  const slot = parseSlot({ start: '2026-10-14T11:00:00+02:00', duration: 45 });
+  const message = defaultSelectMessage(slot, { locale: 'es-ES', service: 'Peeling' });
+
+  assert.match(message, /2026/, `no year in: ${message}`);
+});
+
+test('the select message keeps the time, duration, resources and service', () => {
+  const slot = parseSlot({
+    start: '2026-10-14T11:00:00+02:00',
+    duration: 45,
+    resources: [{ label: 'Marta Ruiz', type: 'staff' }, 'Cabina 2'],
+  });
+  const message = defaultSelectMessage(slot, { locale: 'en-GB', service: 'Peeling' });
+
+  assert.match(message, /2026/);
+  assert.match(message, /45 min/);
+  assert.match(message, /Marta Ruiz/);
+  assert.match(message, /Cabina 2/);
+  assert.match(message, /Peeling/);
+});
+
+test('the select message connectors can be localized', () => {
+  const slot = parseSlot({
+    start: '2026-10-14T11:00:00+02:00',
+    duration: 45,
+    resources: [{ label: 'Marta Ruiz', type: 'staff' }],
+  });
+
+  const message = defaultSelectMessage(slot, {
+    locale: 'es-ES',
+    service: 'Peeling',
+    texts: { at: 'a las', with: 'con', units: { hour: 'h', minute: 'min' } },
+  });
+
+  assert.match(message, /a las 11:00/);
+  assert.match(message, /con Marta Ruiz/);
+  assert.doesNotMatch(message, /\bat\b|\bwith\b/, `quedó inglés en: ${message}`);
 });
